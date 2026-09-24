@@ -50,13 +50,168 @@ internal sealed class EmitContext
             if (field.IsStatic || field.IsConst || !field.IsLibImplementation()) continue;
             if (!SymbolEqualityComparer.Default.Equals(field.Type, libraryType)) continue;
 
-            alias = NameMangler.PascalCase(field.Name);
+            // Built-in string/math lowering always uses TextLib::/MathLib::, so
+            // these libraries keep canonical aliases even when fields are renamed.
+            alias = libraryType.Name is "MathLib" or "TextLib"
+                    && libraryType.ContainingNamespace?.ToDisplayString() == "ManiaScriptSharp"
+                ? libraryType.Name
+                : NameMangler.PascalCase(field.Name);
             return true;
         }
 
         alias = "";
         return false;
     }
+
+    private bool? _usesMathLib;
+
+    /// <summary>Whether emitted expressions need the built-in MathLib include.</summary>
+    public bool UsesMathLib => _usesMathLib ??= DetectMathLibUsage();
+
+    private bool? _usesTextLib;
+
+    /// <summary>Whether emitted expressions need the built-in TextLib include.</summary>
+    public bool UsesTextLib => _usesTextLib ??= DetectTextLibUsage();
+
+    private IEnumerable<SyntaxNode> EmittedExpressions()
+    {
+        foreach (var node in Info.Declaration.DescendantNodes())
+        {
+            if (node is not InvocationExpressionSyntax
+                and not MemberAccessExpressionSyntax
+                and not CastExpressionSyntax)
+                continue;
+
+            // Constructors and nested classes are not emitted as part of this script.
+            if (node.Ancestors().OfType<ConstructorDeclarationSyntax>().Any()
+                || node.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault() != Info.Declaration)
+                continue;
+
+            if (node.Ancestors().OfType<VariableDeclaratorSyntax>().FirstOrDefault() is { } variable
+                && Model.GetDeclaredSymbol(variable) is IFieldSymbol { IsConst: true })
+                continue;
+
+            yield return node;
+        }
+    }
+
+    private bool DetectMathLibUsage()
+    {
+        foreach (var node in EmittedExpressions())
+        {
+            if (node is InvocationExpressionSyntax invocation
+                && Model.GetSymbolInfo(invocation.Expression).Symbol is IMethodSymbol method)
+            {
+                if (method.ContainingType?.ToDisplayString() is "System.Math" or "System.MathF")
+                    return true;
+
+                if (method.ContainingType?.ToDisplayString() == "System.Convert"
+                    && invocation.ArgumentList.Arguments.Count == 1
+                    && IsIntegerRealConversion(
+                        Model.GetTypeInfo(invocation.ArgumentList.Arguments[0].Expression).Type,
+                        method.ReturnType))
+                    return true;
+            }
+
+            if (node is MemberAccessExpressionSyntax member
+                && member.Name.Identifier.ValueText is "PI" or "E" or "Tau"
+                && Model.GetSymbolInfo(member.Expression).Symbol is INamedTypeSymbol type
+                && type.ToDisplayString() is "System.Math" or "System.MathF")
+                return true;
+
+            if (node is CastExpressionSyntax cast
+                && IsIntegerRealConversion(Model.GetTypeInfo(cast.Expression).Type,
+                    Model.GetTypeInfo(cast.Type).Type))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool DetectTextLibUsage()
+    {
+        foreach (var node in EmittedExpressions())
+        {
+            if (node is MemberAccessExpressionSyntax member
+                && Model.GetSymbolInfo(member).Symbol is IPropertySymbol
+                    { Name: "Length", ContainingType.SpecialType: SpecialType.System_String })
+                return true;
+
+            if (node is InvocationExpressionSyntax invocation
+                && Model.GetSymbolInfo(invocation.Expression).Symbol is IMethodSymbol method)
+            {
+                var argumentCount = invocation.ArgumentList.Arguments.Count;
+                if (method.ContainingType?.SpecialType == SpecialType.System_String
+                    && UsesTextLibStringMethod(method, invocation.Expression, argumentCount))
+                    return true;
+
+                if (method is { IsStatic: true, Name: "Parse" }
+                    && argumentCount == 1
+                    && method.ContainingType?.SpecialType is SpecialType.System_Int32 or SpecialType.System_Single)
+                    return true;
+
+                if (method.ContainingType?.ToDisplayString() == "System.Convert"
+                    && argumentCount == 1
+                    && IsTextConversion(
+                        Model.GetTypeInfo(invocation.ArgumentList.Arguments[0].Expression).Type,
+                        method.ReturnType))
+                    return true;
+            }
+
+            if (node is CastExpressionSyntax cast
+                && IsTextConversion(Model.GetTypeInfo(cast.Expression).Type,
+                    Model.GetTypeInfo(cast.Type).Type))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool UsesTextLibStringMethod(IMethodSymbol method, SyntaxNode callee, int argumentCount)
+    {
+        if (method.IsStatic)
+            return method.Name == "Join" && argumentCount == 2;
+
+        if (callee is not MemberAccessExpressionSyntax) return false;
+        return method.Name switch
+        {
+            "ToUpper" or "ToUpperInvariant" or "ToLower" or "ToLowerInvariant" => true,
+            "Trim" => argumentCount == 0,
+            "Substring" => argumentCount is 1 or 2,
+            "Contains" or "StartsWith" or "EndsWith" or "Split" => argumentCount == 1,
+            "Replace" => argumentCount == 2,
+            _ => false,
+        };
+    }
+
+    private static bool IsIntegerRealConversion(ITypeSymbol? source, ITypeSymbol? target)
+    {
+        var from = PrimitiveFamily(source);
+        var to = PrimitiveFamily(target);
+        return (from == "Integer" && to == "Real") || (from == "Real" && to == "Integer");
+    }
+
+    private static bool IsTextConversion(ITypeSymbol? source, ITypeSymbol? target)
+    {
+        var from = PrimitiveFamily(source);
+        var to = PrimitiveFamily(target);
+        return (from == "Text" && to is "Integer" or "Real")
+            || (to == "Text" && from is "Boolean" or "Integer" or "Real");
+    }
+
+    private static string? PrimitiveFamily(ITypeSymbol? type) => EnumSupport.IsCustomEnum(type)
+        ? "Integer"
+        : type?.SpecialType switch
+        {
+            SpecialType.System_Boolean => "Boolean",
+            SpecialType.System_Byte or SpecialType.System_SByte or
+            SpecialType.System_Int16 or SpecialType.System_UInt16 or
+            SpecialType.System_Int32 or SpecialType.System_UInt32 or
+            SpecialType.System_Int64 or SpecialType.System_UInt64 => "Integer",
+            SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Decimal => "Real",
+            SpecialType.System_String => "Text",
+            _ => null,
+        };
 
     private Dictionary<INamedTypeSymbol, string>? _importedLibraryStructs;
 

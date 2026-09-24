@@ -118,6 +118,298 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_MathAndMathFCalls_IncludeMathLibOnceWithoutField()
+    {
+        const string code = """
+            using System;
+            using ManiaScriptSharp;
+
+            public class MyMode : IContext
+            {
+                public void Main()
+                {
+                    var absolute = Math.Abs(-5);
+                    var sine = MathF.Sin(1f);
+                }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode");
+
+        Assert.Empty(diagnostics);
+        Assert.Equal(1, output.Split("#Include \"MathLib\" as MathLib").Length - 1);
+        Assert.Contains("MathLib::Abs(-5)", output);
+        Assert.Contains("MathLib::Sin(1.)", output);
+    }
+
+    [Fact]
+    public void Emit_MathCallWithMathLibField_UsesCanonicalAliasOnce()
+    {
+        const string code = """
+            using System;
+            using ManiaScriptSharp;
+
+            namespace ManiaScriptSharp
+            {
+                public class MathLib : ILib
+                {
+                    public int Abs(int value) => value;
+                }
+            }
+
+            public class MyMode : IContext
+            {
+                private MathLib math = new();
+
+                public void Main()
+                {
+                    var first = Math.Abs(-5);
+                    var second = math.Abs(-2);
+                }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode");
+
+        Assert.Empty(diagnostics);
+        Assert.Equal(1, output.Split("#Include \"MathLib\" as MathLib").Length - 1);
+        Assert.Contains("MathLib::Abs(-5)", output);
+        Assert.Contains("MathLib::Abs(-2)", output);
+    }
+
+    [Fact]
+    public void Emit_ManialinkMathCallsInHostAndInlinedLib_IncludeMathLibOnce()
+    {
+        const string code = """
+            using System;
+            using ManiaScriptSharp;
+
+            public class HelperLib : ILib
+            {
+                public int Absolute(int value) => Math.Abs(value);
+            }
+
+            public class MyMode : IContext
+            {
+                private HelperLib helper = new();
+
+                public void Main()
+                {
+                    var first = Math.Abs(-5);
+                    var second = helper.Absolute(-2);
+                }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode", isManialink: true);
+
+        Assert.Empty(diagnostics);
+        Assert.Equal(1, output.Split("#Include \"MathLib\" as MathLib").Length - 1);
+        Assert.Contains("MathLib::Abs(-5)", output);
+        Assert.Contains("MathLib::Abs(_Value)", output);
+    }
+
+    [Theory]
+    [InlineData("var value = Math.PI;", "MathLib::PI()")]
+    [InlineData("var value = (float)1;", "MathLib::ToReal(1)")]
+    [InlineData("var value = Convert.ToInt32(1.5f);", "MathLib::NearestInteger(1.5)")]
+    public void Emit_MathConstantAndNumericConversions_IncludeMathLibWithoutField(string statement, string expected)
+    {
+        var code = $$"""
+            using System;
+            using ManiaScriptSharp;
+
+            public class MyMode : IContext
+            {
+                public void Main()
+                {
+                    {{statement}}
+                }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode");
+
+        Assert.Empty(diagnostics);
+        Assert.Equal(1, output.Split("#Include \"MathLib\" as MathLib").Length - 1);
+        Assert.Contains(expected, output);
+    }
+
+    [Fact]
+    public void Emit_WithoutMathUsage_DoesNotIncludeMathLib()
+    {
+        const string code = """
+            using System;
+            using ManiaScriptSharp;
+
+            public class MyMode : IContext
+            {
+                private const double Pi = Math.PI;
+                public void Main() { var value = 1; }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode");
+
+        Assert.Empty(diagnostics);
+        Assert.DoesNotContain("#Include \"MathLib\"", output);
+        Assert.Contains("#Const C_Pi", output);
+    }
+
+    [Fact]
+    public void Emit_StringOperations_IncludeTextLibOnceWithoutField()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class MyMode : IContext
+            {
+                public void Main()
+                {
+                    string text = "hello";
+                    var upper = text.ToUpper();
+                    var length = text.Length;
+                    var number = int.Parse("5");
+                }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode");
+
+        Assert.Empty(diagnostics);
+        Assert.Equal(1, output.Split("#Include \"TextLib\" as TextLib").Length - 1);
+        Assert.Contains("TextLib::ToUpperCase", output);
+        Assert.Contains("TextLib::Length", output);
+        Assert.Contains("TextLib::ToInteger(\"5\")", output);
+    }
+
+    [Fact]
+    public void Emit_StringCallWithTextLibField_UsesCanonicalAliasOnce()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            namespace ManiaScriptSharp
+            {
+                public class TextLib : ILib
+                {
+                    public string ToUpperCase(string value) => value;
+                }
+            }
+
+            public class MyMode : IContext
+            {
+                private TextLib text = new();
+
+                public void Main()
+                {
+                    var first = "hello".ToUpper();
+                    var second = text.ToUpperCase("world");
+                }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode");
+
+        Assert.Empty(diagnostics);
+        Assert.Equal(1, output.Split("#Include \"TextLib\" as TextLib").Length - 1);
+        Assert.Contains("TextLib::ToUpperCase(\"hello\")", output);
+        Assert.Contains("TextLib::ToUpperCase(\"world\")", output);
+    }
+
+    [Fact]
+    public void Emit_ManialinkStringCallsInHostAndInlinedLib_IncludeTextLibOnce()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class HelperLib : ILib
+            {
+                public string Upper(string value) => value.ToUpper();
+            }
+
+            public class MyMode : IContext
+            {
+                private HelperLib helper = new();
+
+                public void Main()
+                {
+                    var first = "hello".ToUpper();
+                    var second = helper.Upper("world");
+                }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode", isManialink: true);
+
+        Assert.Empty(diagnostics);
+        Assert.Equal(1, output.Split("#Include \"TextLib\" as TextLib").Length - 1);
+        Assert.Contains("TextLib::ToUpperCase(\"hello\")", output);
+        Assert.Contains("TextLib::ToUpperCase(_Value)", output);
+    }
+
+    [Theory]
+    [InlineData("var value = (int)\"5\";", "TextLib::ToInteger(\"5\")")]
+    [InlineData("var value = (string)5;", "TextLib::ToText(5)")]
+    [InlineData("var value = Convert.ToInt32(\"5\");", "TextLib::ToInteger(\"5\")")]
+    [InlineData("var value = Convert.ToString(5);", "TextLib::ToText(5)")]
+    public void Emit_TextConversions_IncludeTextLibWithoutField(string statement, string expected)
+    {
+        var code = $$"""
+            using System;
+            using ManiaScriptSharp;
+
+            public class MyMode : IContext
+            {
+                public void Main()
+                {
+                    {{statement}}
+                }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode");
+
+        Assert.Empty(diagnostics);
+        Assert.Equal(1, output.Split("#Include \"TextLib\" as TextLib").Length - 1);
+        Assert.Contains(expected, output);
+    }
+
+    [Fact]
+    public void Emit_StringOperationsWithoutTextLibCalls_DoNotIncludeTextLib()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class MyMode : IContext
+            {
+                public void Main()
+                {
+                    var empty = string.Empty;
+                    var isEmpty = string.IsNullOrEmpty(empty);
+                    var joined = string.Concat("a", "b");
+                }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode");
+
+        Assert.Empty(diagnostics);
+        Assert.DoesNotContain("#Include \"TextLib\"", output);
+        Assert.DoesNotContain("TextLib::", output);
+    }
+
+    [Fact]
     public void Emit_UserEnums_AsIntegerConstants()
     {
         const string code = """

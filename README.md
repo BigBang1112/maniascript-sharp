@@ -465,6 +465,9 @@ syntax, so explicit C# casts between `bool`/numeric/`string` types translate to 
 type). `System.Convert.ToXxx(value)` uses the same table, except Real→Integer **rounds**
 instead of truncating, matching `Convert.ToInt32` semantics:
 
+Conversions that emit `MathLib::` or `TextLib::` automatically include the corresponding
+library once; neither requires a field declaration.
+
 | C# | ManiaScript |
 |---|---|
 | `(float)intValue` | `MathLib::ToReal(IntValue)` |
@@ -584,10 +587,10 @@ directly to `TextLib::` calls — no explicit `TextLib.Method(...)` call is requ
 | `int.Parse(s)` | `TextLib::ToInteger(s)` |
 | `float.Parse(s)` | `TextLib::ToReal(s)` |
 
-> These calls emit a bare `TextLib::` reference; ManiaScript still requires `#Include
-> "TextLib" as TextLib` for it to resolve. Declare a field of the built-in `TextLib` type
-> named `TextLib` somewhere in the class (see [Library Inclusions](#library-inclusions))
-> so the include directive is generated — otherwise the script won't compile.
+Calls that emit `TextLib::` automatically add `#Include "TextLib" as TextLib` once; no
+`TextLib` field is needed. For example, `s.ToUpper()`, `s.Length`, and `int.Parse(s)`
+together generate one include. Operations lowered without `TextLib::`, such as
+`string.Empty`, `string.IsNullOrEmpty(s)`, and `string.Concat(a, b)`, do not add it.
 
 ---
 
@@ -1610,8 +1613,17 @@ declare Abs = MathLib::Abs(-5);
 ### Automatic math mapping (`System.Math` / `MathF`)
 
 `System.Math`/`System.MathF` calls also translate directly to `MathLib::` — no explicit
-`MathLib.Method(...)` call is required (same caveat as `TextLib` above: a `MathLib` field
-must exist for `#Include "MathLib" as MathLib` to be emitted):
+`MathLib` field is required. The generator emits `#Include "MathLib" as MathLib` once when
+these calls are used. Math constants and numeric casts/conversions that map to `MathLib::`
+also trigger the include:
+
+```cs
+var absolute = Math.Abs(-5);
+var sine = MathF.Sin(1f);
+```
+
+These calls emit a single `#Include "MathLib" as MathLib`, even without a `MathLib` field.
+If a `MathLib` field is also present, its include uses the same `MathLib` alias.
 
 | C# | ManiaScript |
 |---|---|
