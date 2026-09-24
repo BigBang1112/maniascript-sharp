@@ -6,7 +6,7 @@ namespace ManiaScriptSharp;
 public static class ManiaScript
 {
     public static void Log(string message) { }
-    public static void Log(object value) { }
+    public static void Log(object? value) { }
     public static void Assert(bool condition) { }
     public static void Assert(bool condition, string message) { }
     public static void Yield() { }
