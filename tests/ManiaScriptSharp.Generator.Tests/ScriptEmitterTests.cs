@@ -180,7 +180,7 @@ public class ScriptEmitterTests : EmitterTestBase
 
             public class LibEnumContext : IContext
             {
-                public Palette colors = new();
+                private Palette colors = new();
                 private int tone;
                 public void Main() { tone = (int)Palette.Tone.Dark; }
                 public void Loop() { }
@@ -712,6 +712,8 @@ public class ScriptEmitterTests : EmitterTestBase
 
         Assert.Empty(diagnostics);
         Assert.Contains("#Include \"CounterLib.Script.txt\" as Included", output);
+        Assert.DoesNotContain("#Const C_Limit", output);
+        Assert.DoesNotContain("#Setting S_InitialScore", output);
         Assert.Contains("return Included::C_Limit;", output);
         Assert.Contains("return Included::S_InitialScore;", output);
         Assert.Contains("return Included::GetLimit();", output);

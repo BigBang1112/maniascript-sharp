@@ -59,10 +59,10 @@ internal sealed class EnumEmitter
         for (var owner = type.ContainingType; owner is not null; owner = owner.ContainingType)
             if (TypeMapper.IsContextOrLibType(owner)
                 && !SymbolEqualityComparer.Default.Equals(owner, _ctx.Info.Symbol))
-                return _ctx.Info.Symbol.GetMembers().OfType<IFieldSymbol>()
-                    .Any(field => SymbolEqualityComparer.Default.Equals(field.Type, owner)
-                        && field.IsLibImplementation()
-                        && (_ctx.IsManialink || field.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal));
+                // A normal script accesses members of an included library through its alias,
+                // so its enum constants must remain defined in that library. Manialinks inline
+                // their user libraries, which is the sole case where definitions belong here.
+                return _ctx.IsManialink || _ctx.TryGetLibraryAlias(owner, out _);
         return false;
     }
 }
