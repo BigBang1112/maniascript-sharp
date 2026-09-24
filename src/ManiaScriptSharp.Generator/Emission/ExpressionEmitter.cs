@@ -121,7 +121,7 @@ internal sealed class ExpressionEmitter
                 if (f.HasAttr("SettingAttribute")) return NameMangler.Setting(f);
                 if (f.IsConst) return NameMangler.Const(f);
                 if (f.HasAttr("ManialinkControlAttribute")) return NameMangler.Global(f);
-                if (f.IsLibImplementation()) return NameMangler.PascalCase(f.Name);
+                if (f.IsLibImplementation() && _ctx.TryGetLibraryAlias((INamedTypeSymbol)f.Type, out var libAlias)) return libAlias;
                 return NameMangler.Global(f);
             case IPropertySymbol p:
                 if (p.HasAttr("ManialinkControlAttribute")) return NameMangler.PascalCase(p.Name);
@@ -150,7 +150,7 @@ internal sealed class ExpressionEmitter
                 return NameMangler.Method(m);
             // Native API enum type used bare → route through TypeMapper for qualification.
             case INamedTypeSymbol { TypeKind: TypeKind.Enum } nt:
-                return TypeMapper.Map(nt);
+                return _ctx.MapType(nt);
         }
         return id.Identifier.Text;
     }
@@ -243,6 +243,13 @@ internal sealed class ExpressionEmitter
         };
         var leftIsUserLib = IsUserDefinedLibType(leftLibType);
 
+        // Static C# access (for example, `CounterLib.Limit`) has a type on the left,
+        // whereas instance access has the lib field. Both refer to the same ManiaScript
+        // include, so normalize either form to its emitted `as Alias` name.
+        if (!_ctx.IsManialink && leftLibType is not null
+            && _ctx.TryGetLibraryAlias(leftLibType, out var includeAlias))
+            lhs = includeAlias;
+
         if (leftIsUserLib && leftSym is INamedTypeSymbol && memberSym is IFieldSymbol staticLibField)
         {
             if (staticLibField.HasAttr("SettingAttribute"))
@@ -330,11 +337,8 @@ internal sealed class ExpressionEmitter
             if (!TypeMapper.IsContextOrLibType(owner)
                 || SymbolEqualityComparer.Default.Equals(owner, _ctx.Info.Symbol)) continue;
 
-            var libField = _ctx.Info.Symbol.GetMembers().OfType<IFieldSymbol>()
-                .FirstOrDefault(f => SymbolEqualityComparer.Default.Equals(f.Type, owner) && f.IsLibImplementation());
-            if (libField is not null && !_ctx.IsManialink
-                && libField.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal)
-                return $"{NameMangler.PascalCase(libField.Name)}::{name}";
+            if (!_ctx.IsManialink && _ctx.TryGetLibraryAlias(owner, out var alias))
+                return $"{alias}::{name}";
             break;
         }
         return name;
@@ -545,7 +549,7 @@ internal sealed class ExpressionEmitter
         if (bin.IsKind(SyntaxKind.AsExpression))
         {
             var typeSym = _ctx.Model.GetTypeInfo(bin.Right).Type;
-            return $"({Translate(bin.Left)} as {TypeMapper.Map(typeSym)})";
+            return $"({Translate(bin.Left)} as {_ctx.MapType(typeSym)})";
         }
 
         var left = Translate(bin.Left);
@@ -610,6 +614,9 @@ internal sealed class ExpressionEmitter
                 var recvSym = _ctx.Model.GetSymbolInfo(lma.Expression).Symbol;
                 var recvIsLib = recvSym is IFieldSymbol recvField && recvField.IsLibImplementation();
                 var recvIsType = recvSym is INamedTypeSymbol;
+                if (!_ctx.IsManialink && recvSym is INamedTypeSymbol recvLibType
+                    && _ctx.TryGetLibraryAlias(recvLibType, out var includeAlias))
+                    recv = includeAlias;
                 if (_ctx.IsManialink && recvIsLib)
                     return $"{NameMangler.Setter(lp)}({valueText})";
                 var sep = (recvIsLib || recvIsType) ? "::" : ".";
@@ -678,7 +685,7 @@ internal sealed class ExpressionEmitter
             return Unsupported(cast, $"cast from {from} to {to} (ManiaScript has no boolean-to-number conversion; extract to an if/else assigning 1/0 explicitly)");
         }
 
-        return $"({exprText} as {TypeMapper.Map(targetType)})";
+        return $"({exprText} as {_ctx.MapType(targetType)})";
     }
 
     /// <summary>ManiaScript basic-type family a C# type maps to, for cast/Convert translation.</summary>
@@ -966,8 +973,8 @@ internal sealed class ExpressionEmitter
         var fields = init.Expressions.Select(TranslateStructInitializerField);
         var contents = string.Join(", ", fields);
         return contents.Length == 0
-            ? $"{TypeMapper.Map(type)} {{}}"
-            : $"{TypeMapper.Map(type)} {{ {contents} }}";
+            ? $"{_ctx.MapType(type)} {{}}"
+            : $"{_ctx.MapType(type)} {{ {contents} }}";
     }
 
     private string TranslateStructInitializerField(ExpressionSyntax expression)

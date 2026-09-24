@@ -580,7 +580,7 @@ internal sealed class LinqChainEmitter
         List<Stage> preFilters, Stage? select, string? projVar, List<Stage> postFilters,
         LambdaExpressionSyntax? selectorLambda)
     {
-        var msType     = varType is not null ? TypeMapper.Map(varType) : "Integer";
+        var msType     = varType is not null ? _ctx.MapType(varType) : "Integer";
         var defaultVal = msType == "Real" ? "0." : "0";
         _ctx.W.Line($"declare {msType} {varName} = {defaultVal};");
         _ctx.W.Line($"foreach ({loopVar} in {source}) {{");
@@ -597,7 +597,7 @@ internal sealed class LinqChainEmitter
         List<Stage> preFilters, Stage? select, string? projVar, List<Stage> postFilters,
         LambdaExpressionSyntax? termPred)
     {
-        var msType = varType is not null ? TypeMapper.Map(varType) : "";
+        var msType = varType is not null ? _ctx.MapType(varType) : "";
         _ctx.W.Line($"declare {msType} {varName};");
         _ctx.W.Line($"foreach ({loopVar} in {source}) {{");
         _ctx.W.Push();
@@ -613,7 +613,7 @@ internal sealed class LinqChainEmitter
         List<Stage> preFilters, Stage? select, string? projVar, List<Stage> postFilters,
         LambdaExpressionSyntax? termPred)
     {
-        var msType = varType is not null ? TypeMapper.Map(varType) : "";
+        var msType = varType is not null ? _ctx.MapType(varType) : "";
         _ctx.W.Line($"declare {msType} {varName};");
         _ctx.W.Line($"foreach ({loopVar} in {source}) {{");
         _ctx.W.Push();
@@ -628,7 +628,7 @@ internal sealed class LinqChainEmitter
         List<Stage> preFilters, Stage? select, string? projVar, List<Stage> postFilters,
         LambdaExpressionSyntax? termPred, bool requireMatch)
     {
-        var msType = varType is not null ? TypeMapper.Map(varType) : "";
+        var msType = varType is not null ? _ctx.MapType(varType) : "";
         var foundVar = varName + "Found";
         _ctx.W.Line($"declare {msType} {varName};");
         _ctx.W.Line($"declare Boolean {foundVar} = False;");
@@ -653,8 +653,8 @@ internal sealed class LinqChainEmitter
         string keyType = "Text", valType = "Text";
         if (varType is INamedTypeSymbol nt && nt.TypeArguments.Length >= 2)
         {
-            keyType = TypeMapper.Map(nt.TypeArguments[0]);
-            valType = TypeMapper.Map(nt.TypeArguments[1]);
+            keyType = _ctx.MapType(nt.TypeArguments[0]);
+            valType = _ctx.MapType(nt.TypeArguments[1]);
         }
 
         _ctx.W.Line($"declare {valType}[{keyType}] {varName};");
@@ -696,7 +696,7 @@ internal sealed class LinqChainEmitter
         List<Stage> preFilters, Stage? select, string? projVar, List<Stage> postFilters,
         LambdaExpressionSyntax accLambda, ExpressionSyntax seedExpr)
     {
-        var msType = varType is not null ? TypeMapper.Map(varType) : "Integer";
+        var msType = varType is not null ? _ctx.MapType(varType) : "Integer";
         var seed   = _expr.Translate(seedExpr);
 
         // Aggregate((acc, x) => body): first param = accumulator, second = element.
@@ -723,7 +723,7 @@ internal sealed class LinqChainEmitter
         List<Stage> preFilters, Stage? select, string? projVar, List<Stage> postFilters,
         LambdaExpressionSyntax accLambda)
     {
-        var msType = varType is not null ? TypeMapper.Map(varType) : "Integer";
+        var msType = varType is not null ? _ctx.MapType(varType) : "Integer";
 
         _ctx.W.Line($"assert({source}.count > 0);");
         _ctx.W.Line($"declare {msType} {varName} = {source}[0];");
@@ -747,7 +747,7 @@ internal sealed class LinqChainEmitter
         List<Stage> preFilters, Stage? select, string? projVar, List<Stage> postFilters,
         LambdaExpressionSyntax? selectorLambda, bool isMax)
     {
-        var msType = varType is not null ? TypeMapper.Map(varType) : "Integer";
+        var msType = varType is not null ? _ctx.MapType(varType) : "Integer";
         var op = isMax ? ">" : "<";
 
         _ctx.W.Line($"assert({source}.count > 0);");
@@ -787,7 +787,7 @@ internal sealed class LinqChainEmitter
         ExpressionSyntax secondSourceExpr, LambdaExpressionSyntax? resultLambda, string loopVar)
     {
         var elemType = varType is INamedTypeSymbol nt2 && nt2.TypeArguments.Length > 0
-            ? TypeMapper.Map(nt2.TypeArguments[0])
+            ? _ctx.MapType(nt2.TypeArguments[0])
             : GetElementType(varType, null);
         var second = _expr.Translate(secondSourceExpr);
 
@@ -1014,16 +1014,16 @@ internal sealed class LinqChainEmitter
             if (bodyExpr is not null)
             {
                 var t = _ctx.Model.GetTypeInfo(bodyExpr).Type;
-                if (t is not null) return TypeMapper.Map(t);
+                if (t is not null) return _ctx.MapType(t);
             }
         }
 
         // Fall back to unwrapping the collection element type from varType.
         if (varType is INamedTypeSymbol nt && nt.TypeArguments.Length > 0)
-            return TypeMapper.Map(nt.TypeArguments[0]);
+            return _ctx.MapType(nt.TypeArguments[0]);
         if (varType is IArrayTypeSymbol arr)
-            return TypeMapper.Map(arr.ElementType);
-        return TypeMapper.Map(varType);
+            return _ctx.MapType(arr.ElementType);
+        return _ctx.MapType(varType);
     }
 
     // ── Lambda param binding ────────────────────────────────────────────────

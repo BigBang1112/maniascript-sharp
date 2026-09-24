@@ -200,7 +200,7 @@ internal sealed class StatementEmitter
     private void EmitLocalDecl(LocalDeclarationStatementSyntax local)
     {
         var typeSym = _ctx.Model.GetTypeInfo(local.Declaration.Type).Type;
-        var msType = TypeMapper.Map(typeSym);
+        var msType = _ctx.MapType(typeSym);
         foreach (var v in local.Declaration.Variables)
         {
             var name = NameMangler.Local(v.Identifier.Text);
@@ -270,7 +270,7 @@ internal sealed class StatementEmitter
             return false;
 
         var targetType = _ctx.Model.GetTypeInfo(target).Type;
-        _ctx.W.Line($"declare {TypeMapper.Map(targetType)} {name} <=> {_expr.Translate(target)};");
+        _ctx.W.Line($"declare {_ctx.MapType(targetType)} {name} <=> {_expr.Translate(target)};");
         _ctx.AliasLambdaLocals[variable.Identifier.Text] = name;
         return true;
     }
@@ -526,7 +526,7 @@ internal sealed class StatementEmitter
         var recv = _expr.Translate(ma.Expression);
         var keyArg = _expr.Translate(args[0].Expression);
         var valueName = NameMangler.Local(desig.Identifier.Text);
-        var msValueType = TypeMapper.Map(sym.Parameters[1].Type);
+        var msValueType = _ctx.MapType(sym.Parameters[1].Type);
 
         if (!negated)
         {
@@ -749,7 +749,7 @@ internal sealed class StatementEmitter
         {
             var rightExpr = rightTuple.Arguments[i].Expression;
             var rightText = _expr.Translate(rightExpr);
-            var msType = TypeMapper.Map(_ctx.Model.GetTypeInfo(rightExpr).Type);
+            var msType = _ctx.MapType(_ctx.Model.GetTypeInfo(rightExpr).Type);
             var tmpName = _ctx.NextTupleTempName();
             _ctx.W.Line($"declare {msType} {tmpName} = {rightText};");
             temps[i] = tmpName;
@@ -876,7 +876,7 @@ internal sealed class StatementEmitter
         if (fs.Declaration is not null)
         {
             var typeSym = _ctx.Model.GetTypeInfo(fs.Declaration.Type).Type;
-            var msType = TypeMapper.Map(typeSym);
+            var msType = _ctx.MapType(typeSym);
             foreach (var v in fs.Declaration.Variables)
             {
                 var init = v.Initializer is null ? "" : $" = {_expr.Translate(v.Initializer.Value)}";
@@ -1122,7 +1122,7 @@ internal sealed class StatementEmitter
         var typeArgSyntax = generic.TypeArgumentList.Arguments.FirstOrDefault();
         if (typeArgSyntax is null) return false;
         var typeSym = _ctx.Model.GetTypeInfo(typeArgSyntax).Type;
-        var msType = TypeMapper.Map(typeSym);
+        var msType = _ctx.MapType(typeSym);
 
         // Provider expression (first argument).
         var provider = _expr.Translate(args[0].Expression);

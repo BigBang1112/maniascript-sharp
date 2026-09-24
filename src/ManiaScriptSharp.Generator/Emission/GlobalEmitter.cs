@@ -44,7 +44,7 @@ internal sealed class GlobalEmitter
         // Backing globals for OnChange(value, oldValue => { ... }) call sites (collected up-front).
         foreach (var kvp in _ctx.OnChangeGlobals)
         {
-            _ctx.W.Line($"declare {TypeMapper.Map(kvp.Value)} {kvp.Key};");
+            _ctx.W.Line($"declare {_ctx.MapType(kvp.Value)} {kvp.Key};");
             any = true;
         }
         if (any) _ctx.W.Line();
@@ -62,7 +62,7 @@ internal sealed class GlobalEmitter
         {
             var attr = f.GetAttr("ManialinkControlAttribute")!;
             var xmlId = attr.Ctor<string>(0) ?? NameMangler.PascalCase(f.Name);
-            var type = TypeMapper.Map(f.Type);
+            var type = _ctx.MapType(f.Type);
             var ignoreValidation = attr.Named<bool>("IgnoreValidation");
             var loc = f.Locations.FirstOrDefault();
             var controlName = ResolveGlobalName(f);
@@ -72,7 +72,7 @@ internal sealed class GlobalEmitter
         }
 
         var name = ResolveGlobalName(f);
-        var msType = TypeMapper.Map(f.Type);
+        var msType = _ctx.MapType(f.Type);
 
         var initSyntax = TryGetInitializerSyntax(f);
         var assignmentInInitializer = initSyntax?.DescendantNodesAndSelf()
@@ -109,7 +109,7 @@ internal sealed class GlobalEmitter
     {
         var attr = p.GetAttr("ManialinkControlAttribute")!;
         var xmlId = attr.Ctor<string>(0) ?? NameMangler.PascalCase(p.Name);
-        var type = TypeMapper.Map(p.Type);
+        var type = _ctx.MapType(p.Type);
         var ignoreValidation = attr.Named<bool>("IgnoreValidation");
         var loc = p.Locations.FirstOrDefault();
         _ctx.W.Line($"declare {type} {NameMangler.PascalCase(p.Name)};");
@@ -120,7 +120,7 @@ internal sealed class GlobalEmitter
     private bool EmitAutoProperty(IPropertySymbol p)
     {
         var name = NameMangler.Global(p);
-        var msType = TypeMapper.Map(p.Type);
+        var msType = _ctx.MapType(p.Type);
         var initSyntax = TryGetInitializerSyntax(p);
         var assignmentInInitializer = initSyntax?.DescendantNodesAndSelf()
             .OfType<AssignmentExpressionSyntax>()
@@ -162,7 +162,7 @@ internal sealed class GlobalEmitter
     /// </summary>
     private bool CanUseInitializerInLib(ITypeSymbol type, ExpressionSyntax initializer)
     {
-        if ((TypeMapper.Map(type).EndsWith("[]", System.StringComparison.Ordinal)
+        if ((_ctx.MapType(type).EndsWith("[]", System.StringComparison.Ordinal)
              || ExpressionEmitter.IsDictionaryType(type as INamedTypeSymbol))
             && IsEmptyCollectionInitializer(initializer))
             return true;

@@ -38,7 +38,7 @@ internal sealed class StructEmitter
         foreach (var f in t.GetMembers().OfType<IFieldSymbol>())
         {
             if (f.IsStatic || f.IsConst) continue;
-            _ctx.W.Line($"{TypeMapper.Map(f.Type)} {Naming.NameMangler.StructField(f)};");
+            _ctx.W.Line($"{_ctx.MapType(f.Type)} {Naming.NameMangler.StructField(f)};");
         }
         _ctx.W.Pop();
         _ctx.W.Line("}");

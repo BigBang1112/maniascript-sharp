@@ -64,6 +64,60 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_LibFieldInitializedInConstructor_EmitsOnlyInclude()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class LayerLib : ILib { }
+
+            public class MyMode : IContext
+            {
+                private readonly LayerLib layers;
+
+                public MyMode()
+                {
+                    layers = new();
+                }
+
+                public void Main() { }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Include \"LayerLib.Script.txt\" as Layers", output);
+        Assert.DoesNotContain("Layers =", output);
+        Assert.DoesNotContain("MyMode()", output);
+    }
+
+    [Fact]
+    public void Emit_LibFieldInitializedInline_EmitsOnlyInclude()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class LayerLib : ILib { }
+
+            public class MyMode : IContext
+            {
+                private readonly LayerLib layers = new();
+
+                public void Main() { }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Include \"LayerLib.Script.txt\" as Layers", output);
+        Assert.DoesNotContain("Layers =", output);
+    }
+
+    [Fact]
     public void Emit_UserEnums_AsIntegerConstants()
     {
         const string code = """
@@ -90,8 +144,8 @@ public class ScriptEmitterTests : EmitterTestBase
         var (output, diagnostics) = EmitScript(code, "EnumContext");
 
         Assert.Empty(diagnostics);
-        Assert.Contains("#Const C_EnumContext_Choice_No 2", output);
-        Assert.Contains("#Const C_EnumContext_Choice_Yes 3", output);
+        Assert.Contains("#Const C_Choice_No 2", output);
+        Assert.Contains("#Const C_Choice_Yes 3", output);
         Assert.Contains("#Const C_Phase_Idle 0", output);
         Assert.Contains("#Const C_Phase_Running 5", output);
         Assert.Contains("#Const C_Phase_Done 6", output);
@@ -100,7 +154,7 @@ public class ScriptEmitterTests : EmitterTestBase
         Assert.Contains("declare Integer G_Choice", output);
         Assert.Contains("Integer Next = C_Phase_Done", output);
         Assert.Contains("Next == C_Phase_Alias", output);
-        Assert.Contains("G_Choice = C_EnumContext_Choice_No", output);
+        Assert.Contains("G_Choice = C_Choice_No", output);
     }
 
     [Fact]
@@ -136,22 +190,22 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_UserEnumsInDifferentNamespaces_HaveDistinctConstants()
+    public void Emit_UserEnums_OmitNamespaceFromConstants()
     {
         const string code = """
             using ManiaScriptSharp;
 
-            namespace First { public enum State { Ready = 1 } }
-            namespace Second { public enum State { Ready = 2 } }
+            namespace First { public enum FirstState { Ready = 1 } }
+            namespace Second { public enum SecondState { Ready = 2 } }
 
             public class NamespacedEnums : IContext
             {
-                private First.State first;
-                private Second.State second;
+                private First.FirstState first;
+                private Second.SecondState second;
                 public void Main()
                 {
-                    first = First.State.Ready;
-                    second = Second.State.Ready;
+                    first = First.FirstState.Ready;
+                    second = Second.SecondState.Ready;
                 }
                 public void Loop() { }
             }
@@ -160,10 +214,10 @@ public class ScriptEmitterTests : EmitterTestBase
         var (output, diagnostics) = EmitScript(code, "NamespacedEnums");
 
         Assert.Empty(diagnostics);
-        Assert.Contains("#Const C_First_State_Ready 1", output);
-        Assert.Contains("#Const C_Second_State_Ready 2", output);
-        Assert.Contains("G_First = C_First_State_Ready", output);
-        Assert.Contains("G_Second = C_Second_State_Ready", output);
+        Assert.Contains("#Const C_FirstState_Ready 1", output);
+        Assert.Contains("#Const C_SecondState_Ready 2", output);
+        Assert.Contains("G_First = C_FirstState_Ready", output);
+        Assert.Contains("G_Second = C_SecondState_Ready", output);
     }
 
     [Fact]
@@ -180,7 +234,7 @@ public class ScriptEmitterTests : EmitterTestBase
 
             public class LibEnumContext : IContext
             {
-                public Palette palette = new();
+                private Palette colors = new();
                 private int tone;
                 public void Main() { tone = (int)Palette.Tone.Dark; }
                 public void Loop() { }
@@ -192,10 +246,11 @@ public class ScriptEmitterTests : EmitterTestBase
 
         Assert.Empty(libDiagnostics);
         Assert.Empty(scriptDiagnostics);
-        Assert.Contains("#Const C_Palette_Tone_Light 1", libOutput);
-        Assert.Contains("#Const C_Palette_Tone_Dark 2", libOutput);
-        Assert.Contains("Palette::C_Palette_Tone_Dark", scriptOutput);
-        Assert.DoesNotContain("#Const C_Palette_Tone_Dark", scriptOutput);
+        Assert.Contains("#Const C_Tone_Light 1", libOutput);
+        Assert.Contains("#Const C_Tone_Dark 2", libOutput);
+        Assert.Contains("#Include \"Palette.Script.txt\" as Colors", scriptOutput);
+        Assert.Contains("Colors::C_Tone_Dark", scriptOutput);
+        Assert.DoesNotContain("#Const C_Tone_Dark", scriptOutput);
     }
 
     [Fact]
@@ -222,9 +277,9 @@ public class ScriptEmitterTests : EmitterTestBase
         var (output, diagnostics) = EmitScript(code, "LibEnumManialink", isManialink: true);
 
         Assert.Empty(diagnostics);
-        Assert.Contains("#Const C_Palette_Tone_Dark 2", output);
-        Assert.Contains("G_Tone = C_Palette_Tone_Dark", output);
-        Assert.DoesNotContain("Palette::C_Palette_Tone_Dark", output);
+        Assert.Contains("#Const C_Tone_Dark 2", output);
+        Assert.Contains("G_Tone = C_Tone_Dark", output);
+        Assert.DoesNotContain("Palette::C_Tone_Dark", output);
     }
 
     [Fact]
@@ -295,9 +350,9 @@ public class ScriptEmitterTests : EmitterTestBase
         var (output, diagnostics) = EmitScript(code, "StructFieldNamingContext");
 
         Assert.Empty(diagnostics);
-        Assert.Contains("#Struct CamelState {\n    Integer totalScore;\n}", output);
-        Assert.Contains("#Struct SnakeState {\n    Integer player_url;\n}", output);
-        Assert.Contains("#Struct JsonNamedState {\n    Integer score;\n}", output);
+        Assert.Contains("#Struct CamelState {\n  Integer totalScore;\n}", output);
+        Assert.Contains("#Struct SnakeState {\n  Integer player_url;\n}", output);
+        Assert.Contains("#Struct JsonNamedState {\n  Integer score;\n}", output);
     }
 
     [Fact]
@@ -591,7 +646,7 @@ public class ScriptEmitterTests : EmitterTestBase
         Assert.Contains("declare Text G_Banner;", output);
         Assert.DoesNotContain("declare Ident[Text] G_ByName = [];", output);
         Assert.DoesNotContain("declare Text G_Empty = \"\";", output);
-        Assert.Contains("main() {\n    G_ByName = [];\n    G_Empty = \"\";\n    G_Banner = \"\";\n}", output);
+        Assert.Contains("main() {\n  G_ByName = [];\n  G_Empty = \"\";\n  G_Banner = \"\";\n}", output);
     }
 
     [Fact]
@@ -619,7 +674,7 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_Consumer_ImportsNestedLibraryStruct()
+    public void Emit_Consumer_UsesQualifiedNestedLibraryStructWithoutAlias()
     {
         const string code = """
             using ManiaScriptSharp;
@@ -639,9 +694,12 @@ public class ScriptEmitterTests : EmitterTestBase
             {
                 public StateLib Lib = null!;
                 public StateLib.Snapshot Current;
+                public System.Collections.Generic.List<StateLib.Snapshot> History;
+                public StateLib.Snapshot Echo(StateLib.Snapshot snapshot) => snapshot;
                 public void Main()
                 {
                     Current = Lib.GetSnapshot();
+                    StateLib.Snapshot next = new() { Count = 1 };
                 }
             }
             """;
@@ -649,9 +707,48 @@ public class ScriptEmitterTests : EmitterTestBase
         var (output, diagnostics) = EmitScript(code, "Host");
 
         Assert.Contains(diagnostics, d => d.Id == "MSS016" && d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Warning);
-        Assert.Contains("#Struct Lib::Snapshot as Snapshot", output);
-        Assert.Contains("declare Snapshot G_Current;", output);
+        Assert.DoesNotContain("#Struct Lib::Snapshot as Snapshot", output);
+        Assert.Contains("declare Lib::Snapshot G_Current;", output);
+        Assert.Contains("declare Lib::Snapshot[] G_History;", output);
+        Assert.Contains("Lib::Snapshot Echo(", output);
+        Assert.Contains("declare Lib::Snapshot Next = Lib::Snapshot { Count = 1 };", output);
         Assert.DoesNotContain("#Struct Snapshot {", output);
+    }
+
+    [Fact]
+    public void Emit_Consumer_ImportsNestedLibraryStructWithExplicitUsingAlias()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+            using LocalSnapshot = StateLib.Snapshot;
+
+            public class StateLib : ILib
+            {
+                public struct Snapshot { public int Count; }
+                public Snapshot GetSnapshot() => new();
+            }
+
+            public class Host
+            {
+                private StateLib lib = new();
+                private LocalSnapshot current;
+
+                public LocalSnapshot GetCurrent() => current;
+                public void Main()
+                {
+                    current = new LocalSnapshot { Count = 1 };
+                }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "Host");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Include \"StateLib.Script.txt\" as Lib", output);
+        Assert.Contains("#Struct Lib::Snapshot as LocalSnapshot", output);
+        Assert.Contains("declare LocalSnapshot G_Current;", output);
+        Assert.Contains("LocalSnapshot GetCurrent()", output);
+        Assert.Contains("LocalSnapshot { Count = 1 }", output);
     }
 
     [Fact]
@@ -693,25 +790,31 @@ public class ScriptEmitterTests : EmitterTestBase
                 [Setting]
                 public const int InitialScore = 3;
                 public int Score { get; set; }
+                public static int GetLimit() => Limit;
             }
 
             public class Host
             {
-                public CounterLib Lib = null!;
+                public CounterLib Included = null!;
                 public int ReadLimit() => CounterLib.Limit;
                 public int ReadSetting() => CounterLib.InitialScore;
-                public int ReadScore() => Lib.Score;
-                public void WriteScore() => Lib.Score = 7;
+                public int ReadStaticMethod() => CounterLib.GetLimit();
+                public int ReadScore() => Included.Score;
+                public void WriteScore() => Included.Score = 7;
             }
             """;
 
         var (output, diagnostics) = EmitScript(code, "Host");
 
         Assert.Empty(diagnostics);
-        Assert.Contains("return CounterLib::C_Limit;", output);
-        Assert.Contains("return CounterLib::S_InitialScore;", output);
-        Assert.Contains("return Lib::GetScore();", output);
-        Assert.Contains("Lib::SetScore(7);", output);
+        Assert.Contains("#Include \"CounterLib.Script.txt\" as Included", output);
+        Assert.DoesNotContain("#Const C_Limit", output);
+        Assert.DoesNotContain("#Setting S_InitialScore", output);
+        Assert.Contains("return Included::C_Limit;", output);
+        Assert.Contains("return Included::S_InitialScore;", output);
+        Assert.Contains("return Included::GetLimit();", output);
+        Assert.Contains("return Included::GetScore();", output);
+        Assert.Contains("Included::SetScore(7);", output);
     }
 
     [Fact]

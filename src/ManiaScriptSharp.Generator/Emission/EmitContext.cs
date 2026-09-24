@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using ManiaScriptSharp.Generator.Naming;
 
 namespace ManiaScriptSharp.Generator.Emission;
 
@@ -36,6 +37,96 @@ internal sealed class EmitContext
 
     /// <summary>Tracks <c>#Include</c> paths already emitted — shared across the consuming class and all inlined libs to prevent duplicates.</summary>
     public HashSet<string> EmittedIncludes { get; } = [];
+
+    /// <summary>
+    /// Returns the alias emitted by the consuming script's <c>#Include</c> directive for a
+    /// library type. Every access to an included library must use this name: the C# type name
+    /// is only the script filename and is not necessarily available in ManiaScript.
+    /// </summary>
+    public bool TryGetLibraryAlias(INamedTypeSymbol libraryType, out string alias)
+    {
+        foreach (var field in Info.Symbol.GetMembers().OfType<IFieldSymbol>())
+        {
+            if (field.IsStatic || field.IsConst || !field.IsLibImplementation()) continue;
+            if (!SymbolEqualityComparer.Default.Equals(field.Type, libraryType)) continue;
+
+            alias = NameMangler.PascalCase(field.Name);
+            return true;
+        }
+
+        alias = "";
+        return false;
+    }
+
+    private Dictionary<INamedTypeSymbol, string>? _importedLibraryStructs;
+
+    /// <summary>C# using aliases that explicitly request a ManiaScript nested-struct import.</summary>
+    public IReadOnlyDictionary<INamedTypeSymbol, string> ImportedLibraryStructs
+        => _importedLibraryStructs ??= CollectImportedLibraryStructs();
+
+    /// <summary>Maps a type using the include alias, unless an explicit C# using alias imports it locally.</summary>
+    public string MapType(ITypeSymbol? type) => TypeMapper.Map(type, ResolveLibraryStructName);
+
+    private string? ResolveLibraryStructName(INamedTypeSymbol type)
+    {
+        if (type.TypeKind != TypeKind.Struct || type.ContainingType is not { } owner
+            || !owner.AllInterfaces.Any(i => i.Name == "ILib"
+                && i.ContainingNamespace?.ToDisplayString() == "ManiaScriptSharp"))
+            return null;
+
+        // A library's own structs, and structs from libraries inlined into a manialink,
+        // are declared in this script rather than reached through an include alias.
+        if (SymbolEqualityComparer.Default.Equals(owner, Info.Symbol)
+            || IsInlinedLibrary(owner))
+            return type.Name;
+
+        if (!TryGetLibraryAlias(owner, out var libraryAlias)) return null;
+        return ImportedLibraryStructs.TryGetValue(type, out var localName)
+            ? localName
+            : $"{libraryAlias}::{type.Name}";
+    }
+
+    private bool IsInlinedLibrary(INamedTypeSymbol libraryType)
+        => IsManialink && libraryType.ContainingNamespace?.ToDisplayString() != "ManiaScriptSharp";
+
+    private Dictionary<INamedTypeSymbol, string> CollectImportedLibraryStructs()
+    {
+        var result = new Dictionary<INamedTypeSymbol, string>(SymbolEqualityComparer.Default);
+        var root = Info.Declaration.SyntaxTree.GetRoot() as CompilationUnitSyntax;
+        if (root is null) return result;
+
+        // Global aliases can be declared in another source file. Ordinary aliases are
+        // visible only from this file or an enclosing namespace declaration.
+        foreach (var tree in Model.Compilation.SyntaxTrees)
+        {
+            if (tree.GetRoot() is not CompilationUnitSyntax compilationUnit) continue;
+            var model = Model.Compilation.GetSemanticModel(tree);
+            foreach (var directive in compilationUnit.Usings.Where(u => u.GlobalKeyword.RawKind != 0))
+                AddAlias(directive, model);
+        }
+
+        foreach (var directive in root.Usings.Where(u => u.GlobalKeyword.RawKind == 0))
+            AddAlias(directive, Model);
+
+        foreach (var namespaceDeclaration in Info.Declaration.Ancestors()
+                     .OfType<BaseNamespaceDeclarationSyntax>().Reverse())
+            foreach (var directive in namespaceDeclaration.Usings)
+                AddAlias(directive, Model);
+
+        return result;
+
+        void AddAlias(UsingDirectiveSyntax directive, SemanticModel model)
+        {
+            if (directive.Alias is null
+                || model.GetDeclaredSymbol(directive) is not IAliasSymbol
+                    { Target: INamedTypeSymbol { TypeKind: TypeKind.Struct, ContainingType: { } owner } target }
+                || !TryGetLibraryAlias(owner, out _)
+                || IsInlinedLibrary(owner))
+                return;
+
+            result[target] = directive.Alias.Name.Identifier.ValueText;
+        }
+    }
 
     /// <summary>Field-initialiser statements that must run inside <c>main()</c> rather than at declaration.</summary>
     public List<DeferredInit> DeferredInits { get; } = [];

@@ -7,30 +7,32 @@ namespace ManiaScriptSharp.Generator;
 /// </summary>
 internal static class TypeMapper
 {
-    public static string Map(ITypeSymbol? type)
+    public static string Map(ITypeSymbol? type) => Map(type, null);
+
+    public static string Map(ITypeSymbol? type, Func<INamedTypeSymbol, string?>? structName)
     {
         if (type is null) return "Void";
 
         if (type is IArrayTypeSymbol arr)
-            return Map(arr.ElementType) + "[]";
+            return Map(arr.ElementType, structName) + "[]";
 
         if (type is INamedTypeSymbol named && named.IsGenericType)
         {
             switch (named.ConstructedFrom.ToDisplayString())
             {
                 case "System.Nullable<T>":
-                    return Map(named.TypeArguments[0]);
+                    return Map(named.TypeArguments[0], structName);
                 case "System.Collections.Generic.List<T>":
                 case "System.Collections.Generic.IList<T>":
                 case "System.Collections.Generic.IReadOnlyList<T>":
                 case "System.Collections.Generic.ICollection<T>":
                 case "System.Collections.Generic.IEnumerable<T>":
                 case "System.Collections.Immutable.ImmutableArray<T>":
-                    return Map(named.TypeArguments[0]) + "[]";
+                    return Map(named.TypeArguments[0], structName) + "[]";
                 case "System.Collections.Generic.Dictionary<TKey, TValue>":
                 case "System.Collections.Generic.IDictionary<TKey, TValue>":
                 case "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>":
-                    return Map(named.TypeArguments[1]) + "[" + Map(named.TypeArguments[0]) + "]";
+                    return Map(named.TypeArguments[1], structName) + "[" + Map(named.TypeArguments[0], structName) + "]";
             }
         }
 
@@ -44,13 +46,17 @@ internal static class TypeMapper
             SpecialType.System_Int64 or SpecialType.System_UInt64 => "Integer",
             SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Decimal => "Real",
             SpecialType.System_String or SpecialType.System_Char or SpecialType.System_Object => "Text",
-            _ => MapNamed(type),
+            _ => MapNamed(type, structName),
         };
     }
 
-    private static string MapNamed(ITypeSymbol type)
+    private static string MapNamed(ITypeSymbol type, Func<INamedTypeSymbol, string?>? structName)
     {
         if (EnumSupport.IsCustomEnum(type)) return "Integer";
+
+        if (type is INamedTypeSymbol { TypeKind: TypeKind.Struct } structType
+            && structName?.Invoke(structType) is { } mappedName)
+            return mappedName;
 
         // Native API enums (e.g. CUILayer.EUILayerType) keep their containing type in
         // the path, mirroring the ManiaScript header (`CUILayer::EUILayerType`). A native

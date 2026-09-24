@@ -15,9 +15,9 @@ public class FunctionEmitterTests : EmitterTestBase
         var output = EmitFunctions("int Adjust(int score, int step) { score += step; return score; }");
 
         Assert.Contains("Integer Private_Adjust(Integer __Input_Score, Integer _Step) {\n" +
-            "    declare Integer _Score = __Input_Score;\n" +
-            "    _Score += _Step;\n" +
-            "    return _Score;\n}", output);
+            "  declare Integer _Score = __Input_Score;\n" +
+            "  _Score += _Step;\n" +
+            "  return _Score;\n}", output);
         Assert.DoesNotContain("declare Integer _Step", output);
     }
 
@@ -26,7 +26,7 @@ public class FunctionEmitterTests : EmitterTestBase
     {
         var output = EmitFunctions("int Sum(int a, int b) => a + b;");
 
-        Assert.Contains("Integer Private_Sum(Integer _A, Integer _B) {\n    return _A + _B;\n}", output);
+        Assert.Contains("Integer Private_Sum(Integer _A, Integer _B) {\n  return _A + _B;\n}", output);
         Assert.DoesNotContain("__Input", output);
     }
 
@@ -48,8 +48,8 @@ public class FunctionEmitterTests : EmitterTestBase
         var output = EmitFunctions("void Advance(int count) => count++;");
 
         Assert.Contains("Void Private_Advance(Integer __Input_Count) {\n" +
-            "    declare Integer _Count = __Input_Count;\n" +
-            "    _Count += 1;\n}", output);
+            "  declare Integer _Count = __Input_Count;\n" +
+            "  _Count += 1;\n}", output);
     }
 
     [Fact]
@@ -58,8 +58,8 @@ public class FunctionEmitterTests : EmitterTestBase
         var output = EmitFunctions("void Advance(int count) { ++count; }");
 
         Assert.Contains("Void Private_Advance(Integer __Input_Count) {\n" +
-            "    declare Integer _Count = __Input_Count;\n" +
-            "    _Count += 1;\n}", output);
+            "  declare Integer _Count = __Input_Count;\n" +
+            "  _Count += 1;\n}", output);
     }
 
     [Fact]
@@ -205,7 +205,7 @@ public class FunctionEmitterTests : EmitterTestBase
 
         Assert.Contains("***AfterStart***", output);
         Assert.Contains("declare Text Message = \"Started\";", output);
-        Assert.Contains("Void Private_Run() {\n    {+++AfterStart+++}\n}", output);
+        Assert.Contains("Void Private_Run() {\n  {+++AfterStart+++}\n}", output);
     }
 
     [Fact]

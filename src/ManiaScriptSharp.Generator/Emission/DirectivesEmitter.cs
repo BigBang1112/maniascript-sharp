@@ -1,4 +1,3 @@
-using ManiaScriptSharp.Generator.Naming;
 using Microsoft.CodeAnalysis;
 
 namespace ManiaScriptSharp.Generator.Emission;
@@ -92,7 +91,7 @@ internal sealed class DirectivesEmitter
             }
             if (!emittedPaths.Add(typeName)) continue; // deduplicate by type (a lib can only be included once)
 
-            var alias = NameMangler.PascalCase(f.Name);
+            _ctx.TryGetLibraryAlias(fieldType, out var alias);
             _ctx.W.Line($"#Include \"{includePath}\" as {alias}");
             any = true;
         }
@@ -102,35 +101,14 @@ internal sealed class DirectivesEmitter
 
     private void EmitStructImports()
     {
-        var aliases = new Dictionary<Microsoft.CodeAnalysis.INamedTypeSymbol, string>(
-            Microsoft.CodeAnalysis.SymbolEqualityComparer.Default);
-        foreach (var field in _ctx.Info.Symbol.GetMembers().OfType<Microsoft.CodeAnalysis.IFieldSymbol>())
+        foreach (var entry in _ctx.ImportedLibraryStructs)
         {
-            if (field.Type is not Microsoft.CodeAnalysis.INamedTypeSymbol type || !IsLib(type)) continue;
-            if (_ctx.IsManialink && IsUserDefined(type)) continue;
-            if (!aliases.ContainsKey(type))
-                aliases.Add(type, NameMangler.PascalCase(field.Name));
+            var type = entry.Key;
+            var localName = entry.Value;
+            _ctx.TryGetLibraryAlias(type.ContainingType!, out var libraryAlias);
+            _ctx.W.Line($"#Struct {libraryAlias}::{type.Name} as {localName}");
         }
 
-        var imported = new HashSet<Microsoft.CodeAnalysis.INamedTypeSymbol>(
-            Microsoft.CodeAnalysis.SymbolEqualityComparer.Default);
-        foreach (var typeSyntax in _ctx.Info.Declaration.DescendantNodes()
-                     .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TypeSyntax>())
-        {
-            if (_ctx.Model.GetTypeInfo(typeSyntax).Type is not Microsoft.CodeAnalysis.INamedTypeSymbol
-                { TypeKind: Microsoft.CodeAnalysis.TypeKind.Struct, ContainingType: { } owner } type) continue;
-            if (!aliases.TryGetValue(owner, out var alias) || !imported.Add(type)) continue;
-            _ctx.W.Line($"#Struct {alias}::{type.Name} as {type.Name}");
-        }
-
-        if (imported.Count > 0) _ctx.W.Line();
+        if (_ctx.ImportedLibraryStructs.Count > 0) _ctx.W.Line();
     }
-
-    private static bool IsLib(Microsoft.CodeAnalysis.INamedTypeSymbol type)
-        => type.AllInterfaces.Any(static i =>
-            i.Name == "ILib" && i.ContainingNamespace?.ToDisplayString() == "ManiaScriptSharp");
-
-    private static bool IsUserDefined(Microsoft.CodeAnalysis.INamedTypeSymbol type)
-        => type.DeclaringSyntaxReferences.Any(r =>
-            !r.SyntaxTree.FilePath.EndsWith(".g.cs", StringComparison.OrdinalIgnoreCase));
 }

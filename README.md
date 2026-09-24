@@ -48,7 +48,7 @@ Optionally configure the build properties in your `.csproj`. These are the defau
 ```xml
 <PropertyGroup>
     <ManiaScriptOutputDir>ManiaScript</ManiaScriptOutputDir>
-    <ManiaScriptIndentSize>4</ManiaScriptIndentSize>
+    <ManiaScriptIndentSize>2</ManiaScriptIndentSize>
     <ManiaScriptIndentStyle>spaces</ManiaScriptIndentStyle>
     <ManiaScriptVersion>1</ManiaScriptVersion>
 </PropertyGroup>
@@ -1352,9 +1352,8 @@ declare MyStruct Value = MyStruct { MyMember = 1, MyTextMember = "ready" };
 declare MyStruct Empty = MyStruct {};
 ```
 
-When a struct is nested in an included library, declare it through that library's nested C# type.
-The generator imports it using `#Struct Alias::Type as Type`, making the type available in the
-consuming script:
+Including a library does not automatically import its nested structs. References to a nested
+C# type use the library alias directly in ManiaScript:
 
 ```cs
 public class StateLib : ILib<CManiaApp>
@@ -1376,10 +1375,19 @@ public class MyMode : CTmMode, IContext
 **ManiaScript**
 ```
 #Include "StateLib.Script.txt" as State
-#Struct State::Snapshot as Snapshot
 
-declare Snapshot G_Current;
+declare State::Snapshot G_Current;
 ```
+
+To import a nested struct under a local name, add an explicit C# using alias in the consuming
+file:
+
+```cs
+using Snapshot = StateLib.Snapshot;
+```
+
+With the `State` field above, this emits `#Struct State::Snapshot as Snapshot`. References to
+that type then use `Snapshot` in the generated script.
 
 ## Vectors
 
@@ -1657,7 +1665,12 @@ implements `ILib` is auto-`#Include`d, using the field name (PascalCase) as the 
 ```cs
 public class MyMode : CTmMode, IContext
 {
-    public required Message Message;
+    private Message message;
+
+    public MyMode(Message message)
+    {
+        this.message = message;
+    }
 
     public void Main()
     {
@@ -1665,6 +1678,21 @@ public class MyMode : CTmMode, IContext
     }
 }
 ```
+
+Or initialize the include field inline:
+
+```cs
+public class MyMode : CTmMode, IContext
+{
+    private Message message = new();
+
+    public void Main()
+    {
+        var version = message.Version;
+    }
+}
+```
+
 **ManiaScript**
 ```
 #Include "Libs/Nadeo/Message.Script.txt" as Message
@@ -1679,9 +1707,17 @@ main() {
 > `declare` globals. Public properties are exported as `Get*`/`Set*` functions. User-defined
 > library constants/settings are emitted with `C_`/`S_` prefixes; generated wrappers for
 > official libraries preserve their original names, such as `Message::Version`.
+> Initialize a non-nullable library field in the consuming class constructor to satisfy C#'s
+> initialization rules. Constructors are not emitted to ManiaScript, and the `new()` call has no
+> ManiaScript effect; the field exists only to select the include alias.
+> An inline initializer such as `public Message Message = new();` is also allowed and is likewise
+> omitted from the generated ManiaScript.
 > An `ILib` field emits the `#Include` directive even if the script never calls that field.
 > The path follows the library's namespace under the script output root. For example, a
 > library in `MyMode.Libs` emits `#Include "Libs/MyLib.Script.txt" as MyLib`.
+> Importing a nested library struct is optional: `#Struct Atlas::SelectionChange as SelectionChange`
+> is emitted only for an explicit C# alias such as `using SelectionChange = Atlas.SelectionChange;`.
+> Without the alias, generated code uses `Atlas::SelectionChange` directly.
 
 ### Pre-built libraries per game
 

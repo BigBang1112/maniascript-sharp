@@ -26,7 +26,7 @@ internal sealed class CommandEmitter
                 ? attr.ConstructorArguments[1].Values
                     .Select(v => v.Value as ITypeSymbol)
                     .Where(static t => t is not null)
-                    .Select(TypeMapper.Map)
+                    .Select(t => _ctx.MapType(t))
                 : Enumerable.Empty<string>();
             var display = attr.Named<string>("As") ?? name;
             var translated = attr.Named<bool?>("Translated") ?? true;
