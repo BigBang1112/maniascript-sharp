@@ -64,6 +64,60 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_LibFieldInitializedInConstructor_EmitsOnlyInclude()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class LayerLib : ILib { }
+
+            public class MyMode : IContext
+            {
+                private readonly LayerLib layers;
+
+                public MyMode()
+                {
+                    layers = new();
+                }
+
+                public void Main() { }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Include \"LayerLib.Script.txt\" as Layers", output);
+        Assert.DoesNotContain("Layers =", output);
+        Assert.DoesNotContain("MyMode()", output);
+    }
+
+    [Fact]
+    public void Emit_LibFieldInitializedInline_EmitsOnlyInclude()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class LayerLib : ILib { }
+
+            public class MyMode : IContext
+            {
+                private readonly LayerLib layers = new();
+
+                public void Main() { }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Include \"LayerLib.Script.txt\" as Layers", output);
+        Assert.DoesNotContain("Layers =", output);
+    }
+
+    [Fact]
     public void Emit_UserEnums_AsIntegerConstants()
     {
         const string code = """

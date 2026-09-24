@@ -1657,7 +1657,12 @@ implements `ILib` is auto-`#Include`d, using the field name (PascalCase) as the 
 ```cs
 public class MyMode : CTmMode, IContext
 {
-    public required Message Message;
+    private Message message;
+
+    public MyMode(Message message)
+    {
+        this.message = message;
+    }
 
     public void Main()
     {
@@ -1665,6 +1670,21 @@ public class MyMode : CTmMode, IContext
     }
 }
 ```
+
+Or initialize the include field inline:
+
+```cs
+public class MyMode : CTmMode, IContext
+{
+    private Message message = new();
+
+    public void Main()
+    {
+        var version = message.Version;
+    }
+}
+```
+
 **ManiaScript**
 ```
 #Include "Libs/Nadeo/Message.Script.txt" as Message
@@ -1679,6 +1699,11 @@ main() {
 > `declare` globals. Public properties are exported as `Get*`/`Set*` functions. User-defined
 > library constants/settings are emitted with `C_`/`S_` prefixes; generated wrappers for
 > official libraries preserve their original names, such as `Message::Version`.
+> Initialize a non-nullable library field in the consuming class constructor to satisfy C#'s
+> initialization rules. Constructors are not emitted to ManiaScript, and the `new()` call has no
+> ManiaScript effect; the field exists only to select the include alias.
+> An inline initializer such as `public Message Message = new();` is also allowed and is likewise
+> omitted from the generated ManiaScript.
 > An `ILib` field emits the `#Include` directive even if the script never calls that field.
 > The path follows the library's namespace under the script output root. For example, a
 > library in `MyMode.Libs` emits `#Include "Libs/MyLib.Script.txt" as MyLib`.
