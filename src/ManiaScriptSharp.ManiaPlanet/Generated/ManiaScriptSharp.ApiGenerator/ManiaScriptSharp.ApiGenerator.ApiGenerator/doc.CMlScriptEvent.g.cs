@@ -11,7 +11,8 @@ namespace ManiaScriptSharp;
 public partial class CMlScriptEvent : CBaseConstEvent, ILocalProvider
 {
     /// <summary>Supported declare modes : Local  Events for Manialink page scripts.</summary>
-    public enum Type
+    [global::ManiaScriptSharp.ManiaScriptName("Type")]
+    public enum EType
     {
         KeyPress,
         MouseClick,
@@ -39,7 +40,7 @@ public partial class CMlScriptEvent : CBaseConstEvent, ILocalProvider
         ScrollDown,
     }
 
-    public Type Type_ { get; }
+    public EType Type { get; }
     public int KeyCode { get; }
     public string KeyName { get; }
     public string CharPressed { get; }

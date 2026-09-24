@@ -11,7 +11,8 @@ namespace ManiaScriptSharp;
 public partial class CMapEditorPluginEvent : CManiaAppEvent, ILocalProvider
 {
     /// <summary>Supported declare modes : Local  An event</summary>
-    public new enum Type
+    [global::ManiaScriptSharp.ManiaScriptName("Type")]
+    public new enum EType
     {
         LayerCustomEvent,
         KeyPress,
@@ -70,7 +71,7 @@ public partial class CMapEditorPluginEvent : CManiaAppEvent, ILocalProvider
         ClassicMapEditor,
     }
 
-    public Type Type_ { get; }
+    public new EType Type { get; }
     public EInput Input { get; }
     public Ident EditedAnchorDataId { get; }
     public bool IsFromPad { get; }

@@ -379,6 +379,10 @@ Constants include the namespace and containing type names when present, so enum 
 with the same name remain distinct. API enums supplied by the game keep their native
 ManiaScript enum names.
 
+If the official API has an enum and a property with the same name, the C# enum gets an `E`
+prefix while the property keeps its name. For example, use `ev.Type` and
+`CMapEditorPluginEvent.EType`; generated ManiaScript still uses `Type` for both.
+
 ---
 
 ## Settings

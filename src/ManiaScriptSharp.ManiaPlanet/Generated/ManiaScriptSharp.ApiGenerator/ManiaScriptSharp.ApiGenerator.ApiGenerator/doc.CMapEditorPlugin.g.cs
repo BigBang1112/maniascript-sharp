@@ -43,7 +43,8 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
         LeftForward,
     }
 
-    public enum PlaceMode
+    [global::ManiaScriptSharp.ManiaScriptName("PlaceMode")]
+    public enum EPlaceMode
     {
         Unknown,
         Terraform,
@@ -62,7 +63,8 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
         Light,
     }
 
-    public enum EditMode
+    [global::ManiaScriptSharp.ManiaScriptName("EditMode")]
+    public enum EEditMode
     {
         Unknown,
         Place,
@@ -83,7 +85,8 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
         Ultra,
     }
 
-    public enum ValidationStatus
+    [global::ManiaScriptSharp.ManiaScriptName("ValidationStatus")]
+    public enum EValidationStatus
     {
         NotValidable,
         Validable,
@@ -120,8 +123,8 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public bool EnableMapTypeStartTest { get; set; }
     public void SaveMap(string FileName) { }
     public void SaveMap(string FileName, string Path) { }
-    public PlaceMode PlaceMode_ { get; set; }
-    public EditMode EditMode_ { get; set; }
+    public EPlaceMode PlaceMode { get; set; }
+    public EEditMode EditMode { get; set; }
     public bool UndergroundMode { get; set; }
     public bool BlockStockMode { get; set; }
     public CMapEditorInventory Inventory { get; }
@@ -300,7 +303,7 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public float CollectionSquareSize { get; }
     public float CollectionSquareHeight { get; }
     public int CollectionGroundY { get; }
-    public ValidationStatus ValidationStatus_ { get; }
+    public EValidationStatus ValidationStatus { get; }
     public string ManialinkText { get; set; }
     public CMlPage ManialinkPage { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];

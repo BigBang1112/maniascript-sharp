@@ -277,8 +277,53 @@ public :
     CMapEditorPluginEvent::Type Type;
 };";
         var files = EmitAll(input);
-        // The nested enum 'Type' on CMapEditorPluginEvent hides base's 'Type' field
-        Assert.Contains("public new enum Type", files["CMapEditorPluginEvent.g.cs"]);
+        var source = files["CMapEditorPluginEvent.g.cs"];
+        Assert.Contains("[global::ManiaScriptSharp.ManiaScriptName(\"Type\")]", source);
+        Assert.Contains("public new enum EType", source);
+        Assert.Contains("public new CMapEditorPluginEvent.EType Type { get; set; }", source);
+        Assert.DoesNotContain("Type_", source);
+    }
+
+    [Fact]
+    public void Emit_EnumAndPropertyWithSameName_PreservesPropertyAndTypeReferences()
+    {
+        var input = @"
+class CFoo : public CNod {
+public :
+    enum Type { Ready, Done, };
+    Type Type;
+    Type Next(Type Value);
+};
+class CBar : public CNod {
+public :
+    CFoo::Type Selected;
+};";
+        var files = EmitAll(input);
+        var foo = files["CFoo.g.cs"];
+
+        Assert.Contains("[global::ManiaScriptSharp.ManiaScriptName(\"Type\")]", foo);
+        Assert.Contains("public enum EType", foo);
+        Assert.Contains("public EType Type { get; set; }", foo);
+        Assert.Contains("public EType Next(EType value)", foo);
+        Assert.DoesNotContain("Type_", foo);
+        Assert.Contains("public CFoo.EType Selected { get; set; }", files["CBar.g.cs"]);
+    }
+
+    [Fact]
+    public void Emit_EnumAndPropertyWithSameName_AvoidsExistingEPrefixedName()
+    {
+        var input = @"
+class CFoo : public CNod {
+public :
+    enum Type { Ready, };
+    enum EType { Other, };
+    Type Type;
+};";
+        var source = EmitAll(input)["CFoo.g.cs"];
+
+        Assert.Contains("public enum EEType", source);
+        Assert.Contains("public enum EType", source);
+        Assert.Contains("public EEType Type { get; set; }", source);
     }
 
     [Fact]

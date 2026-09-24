@@ -905,6 +905,23 @@ public class ExpressionEmitterTests : EmitterTestBase
     // ────────── User-defined enums ──────────
 
     [Fact]
+    public void Translate_RenamedOfficialEnumAndProperty_UseOriginalManiaScriptNames()
+    {
+        const string members = """
+            public class COfficial
+            {
+                [ManiaScriptSharp.ManiaScriptName("Type")]
+                public enum EType { Ready }
+                public EType Type { get; }
+            }
+            COfficial item;
+            """;
+
+        Assert.Equal("G_Item.Type", TranslateExpr("item.Type", members));
+        Assert.Equal("COfficial::Type::Ready", TranslateExpr("COfficial.EType.Ready", members));
+    }
+
+    [Fact]
     public void Translate_EnumNestedInContextClass_UsesGeneratedConst()
     {
         var (output, _) = TranslateExprWithDiagnostics(

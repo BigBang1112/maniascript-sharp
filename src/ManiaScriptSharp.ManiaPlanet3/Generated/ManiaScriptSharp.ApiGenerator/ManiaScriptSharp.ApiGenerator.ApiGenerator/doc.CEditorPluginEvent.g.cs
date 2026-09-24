@@ -9,7 +9,8 @@ namespace ManiaScriptSharp;
 
 public partial class CEditorPluginEvent : CManiaAppEvent
 {
-    public new enum Type
+    [global::ManiaScriptSharp.ManiaScriptName("Type")]
+    public new enum EType
     {
         LayerCustomEvent,
         KeyPress,
@@ -50,7 +51,7 @@ public partial class CEditorPluginEvent : CManiaAppEvent
         IconLeft,
     }
 
-    public Type Type_ { get; }
+    public new EType Type { get; }
     public EInput Input { get; }
     public Ident EditedAnchorDataId { get; }
 }

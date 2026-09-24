@@ -62,8 +62,13 @@ internal static class TypeMapper
         // the path, mirroring the ManiaScript header (`CUILayer::EUILayerType`). A native
         // enum nested in a context/lib has no ManiaScript container type, so it uses
         // a leading `::` instead.
-        if (type.TypeKind == TypeKind.Enum && type.ContainingType is { } containing)
-            return IsContextOrLibType(containing) ? $"::{type.Name}" : $"{containing.Name}::{type.Name}";
+        if (type.TypeKind == TypeKind.Enum)
+        {
+            var enumName = EnumSupport.NativeName((INamedTypeSymbol)type) ?? type.Name;
+            if (type.ContainingType is { } containing)
+                return IsContextOrLibType(containing) ? $"::{enumName}" : $"{containing.Name}::{enumName}";
+            return enumName;
+        }
 
         return type.Name switch
         {

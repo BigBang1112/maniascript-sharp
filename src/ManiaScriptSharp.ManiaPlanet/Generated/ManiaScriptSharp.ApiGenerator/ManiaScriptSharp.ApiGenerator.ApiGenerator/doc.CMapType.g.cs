@@ -11,7 +11,8 @@ namespace ManiaScriptSharp;
 public partial class CMapType : CMapEditorPlugin, ILocalProvider, IPersistentProvider
 {
     /// <summary>Supported declare modes : Local  Persistent  API for the plugins of the map editor.</summary>
-    public new enum ValidationStatus
+    [global::ManiaScriptSharp.ManiaScriptName("ValidationStatus")]
+    public new enum EValidationStatus
     {
         NotValidable,
         Validable,
@@ -20,7 +21,7 @@ public partial class CMapType : CMapEditorPlugin, ILocalProvider, IPersistentPro
 
     public bool CustomEditAnchorData { get; set; }
     public void ClearMapMetadata() { }
-    public new ValidationStatus ValidationStatus_ { get; set; }
+    public new EValidationStatus ValidationStatus { get; set; }
     public string ValidabilityRequirementsMessage { get; set; }
     public bool ValidationEndRequested { get; set; }
     public bool ValidationEndNoConfirm { get; set; }
