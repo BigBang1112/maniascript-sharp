@@ -204,10 +204,22 @@ public class StatementEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_Return_Ternary_RewritesToIfElse()
+    public void Emit_Return_Ternary_RewritesToIfFollowedByReturn()
     {
         var output = TranslateStmt("return x > 0 ? 1 : -1;", "int x;");
-        Assert.Equal("if (G_X > 0) {\n  return 1;\n} else {\n  return -1;\n}", output);
+        Assert.Equal("if (G_X > 0) {\n  return 1;\n}\nreturn -1;", output);
+    }
+
+    [Fact]
+    public void Emit_Return_NestedTernary_EndsEachBranchWithReturn()
+    {
+        var output = TranslateStmt("return x > 0 ? (x > 1 ? 2 : 1) : (x < 0 ? -1 : 0);", "int x;");
+        Assert.Equal(
+            "if (G_X > 0) {\n" +
+            "  if (G_X > 1) {\n    return 2;\n  }\n  return 1;\n" +
+            "}\n" +
+            "if (G_X < 0) {\n  return -1;\n}\nreturn 0;",
+            output);
     }
 
     [Fact]

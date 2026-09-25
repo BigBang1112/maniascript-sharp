@@ -98,7 +98,9 @@ internal sealed class StatementEmitter
             case ReturnStatementSyntax rs:
                 if (_ctx.ReturnIsContinue && rs.Expression is null)
                     _ctx.W.Line("continue;");
-                else if (rs.Expression is ConditionalExpressionSyntax or SwitchExpressionSyntax)
+                else if (rs.Expression is ConditionalExpressionSyntax)
+                    EmitReturnTernary(rs.Expression);
+                else if (rs.Expression is SwitchExpressionSyntax)
                     EmitTernaryAsIfElse(rs.Expression, v => _ctx.W.Line($"return {_expr.Translate(v)};"));
                 else
                     _ctx.W.Line(rs.Expression is null ? "return;" : $"return {_expr.Translate(rs.Expression)};");
@@ -315,6 +317,30 @@ internal sealed class StatementEmitter
 
         return forStatement.Initializers.Any(initializer => initializer == assignment)
             || forStatement.Incrementors.Any(incrementor => incrementor == assignment);
+    }
+
+    /// <summary>
+    /// Emits a return ternary as an if with an early return followed by the false branch.
+    /// ManiaScript does not accept a final if/else as proof that a function returns.
+    /// </summary>
+    private void EmitReturnTernary(ExpressionSyntax valueExpr)
+    {
+        while (valueExpr is ParenthesizedExpressionSyntax parenthesized)
+            valueExpr = parenthesized.Expression;
+
+        if (valueExpr is ConditionalExpressionSyntax cond)
+        {
+            _ctx.W.Line($"if ({_expr.Translate(cond.Condition)}) {{");
+            _ctx.W.Push();
+            EmitReturnTernary(cond.WhenTrue);
+            _ctx.W.Pop();
+            _ctx.W.Line("}");
+            EmitReturnTernary(cond.WhenFalse);
+        }
+        else
+        {
+            EmitTernaryAsIfElse(valueExpr, v => _ctx.W.Line($"return {_expr.Translate(v)};"));
+        }
     }
 
     /// <summary>
