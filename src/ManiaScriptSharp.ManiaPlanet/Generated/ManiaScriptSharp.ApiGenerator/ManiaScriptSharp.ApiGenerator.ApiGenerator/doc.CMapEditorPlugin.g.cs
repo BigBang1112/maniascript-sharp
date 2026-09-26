@@ -95,34 +95,29 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
 
     public System.Collections.Generic.IList<CMapEditorPluginEvent> PendingEvents { get; }
     public CMap Map { get; }
-    public string MapName { get; }
-    public string MapFileName { get; }
-    public bool IsEditorReadyForRequest { get; }
     public bool HoldLoadingScreen { get; set; }
-    public void ComputeShadows() { }
-    public void ComputeShadows(ShadowsQuality ShadowsQuality) { }
-    public ShadowsQuality CurrentShadowsQuality { get; }
-    public bool IsUltraShadowsQualityAvailable { get; }
-    public void DisplayDefaultSetObjectivesDialog() { }
-    public bool Undo() => default!;
-    public bool Redo() => default!;
-    public void Help() { }
-    public void Validate() { }
-    public void AutoSave() { }
-    public void Quit() { }
-    public void QuickQuit() { }
-    public void QuitAndSetResult(string Type, System.Collections.Generic.IList<string> Data) { }
-    public void QuickQuitAndSetResult(string Type, System.Collections.Generic.IList<string> Data) { }
-    public void TestMapFromStart() { }
-    public void TestMapFromCoord(Int3 Coord, CardinalDirections Dir) { }
-    public void TestMapWithMode(string RulesModeName) { }
-    public void TestMapWithMode(string RulesModeName, string SettingsXml) { }
-    public void TestMapWithMode_SplitScreen(string RulesModeName) { }
-    public void TestMapWithMode_SplitScreen(string RulesModeName, int ScreenCount) { }
-    public void TestMapWithMode_SplitScreen(string RulesModeName, int ScreenCount, int FakeCount, string SettingsXml) { }
+    public partial void ComputeShadows();
+    public partial void ComputeShadows(ShadowsQuality ShadowsQuality);
+    public partial void DisplayDefaultSetObjectivesDialog();
+    public partial bool Undo();
+    public partial bool Redo();
+    public partial void Help();
+    public partial void Validate();
+    public partial void AutoSave();
+    public partial void Quit();
+    public partial void QuickQuit();
+    public partial void QuitAndSetResult(string Type, System.Collections.Generic.IList<string> Data);
+    public partial void QuickQuitAndSetResult(string Type, System.Collections.Generic.IList<string> Data);
+    public partial void TestMapFromStart();
+    public partial void TestMapFromCoord(Int3 Coord, CardinalDirections Dir);
+    public partial void TestMapWithMode(string RulesModeName);
+    public partial void TestMapWithMode(string RulesModeName, string SettingsXml);
+    public partial void TestMapWithMode_SplitScreen(string RulesModeName);
+    public partial void TestMapWithMode_SplitScreen(string RulesModeName, int ScreenCount);
+    public partial void TestMapWithMode_SplitScreen(string RulesModeName, int ScreenCount, int FakeCount, string SettingsXml);
     public bool EnableMapTypeStartTest { get; set; }
-    public void SaveMap(string FileName) { }
-    public void SaveMap(string FileName, string Path) { }
+    public partial void SaveMap(string FileName);
+    public partial void SaveMap(string FileName, string Path);
     public EPlaceMode PlaceMode { get; set; }
     public EEditMode EditMode { get; set; }
     public bool UndergroundMode { get; set; }
@@ -138,106 +133,106 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public float ThumbnailCameraRoll { get; set; }
     public float ThumbnailCameraFovY { get; set; }
     public Vec3 ThumbnailCameraPosition { get; set; }
-    public bool GetRaceCamera(Vec3 Position, float Yaw, float Pitch, float Roll, float FovY) => default!;
+    public partial bool GetRaceCamera(Vec3 Position, float Yaw, float Pitch, float Roll, float FovY);
     public bool EnableAirMapping { get; set; }
     public bool EnableMixMapping { get; set; }
-    public void RemoveAllBlocks() { }
-    public void RemoveAllTerrain() { }
-    public void RemoveAllOffZone() { }
-    public void RemoveAllObjects() { }
-    public void RemoveAll() { }
-    public void RemoveAllBlocksAndTerrain() { }
-    public void ShowCustomSelection() { }
-    public void HideCustomSelection() { }
-    public void CopyPaste_Copy() { }
-    public void CopyPaste_Cut() { }
-    public void CopyPaste_Remove() { }
-    public void CopyPaste_SelectAll() { }
-    public void CopyPaste_ResetSelection() { }
-    public void OpenToolsMenu() { }
-    public void EditMediatrackIngame() { }
-    public void PreloadAllBlocks() { }
-    public void PreloadAllItems() { }
-    public bool CanPlaceBlock(CBlockModel BlockModel, Int3 Coord, CardinalDirections Dir, bool OnGround, int VariantIndex) => default!;
-    public bool PlaceBlock(CBlockModel BlockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public bool CanPlaceBlock_NoDestruction(CBlockModel BlockModel, Int3 Coord, CardinalDirections Dir, bool OnGround, int VariantIndex) => default!;
-    public bool PlaceBlock_NoDestruction(CBlockModel BlockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public bool CanPlaceRoadBlocks(CBlockModel BlockModel, Int3 StartCoord, Int3 EndCoord) => default!;
-    public bool PlaceRoadBlocks(CBlockModel BlockModel, Int3 StartCoord, Int3 EndCoord) => default!;
-    public bool CanPlaceTerrainBlocks(CBlockModel BlockModel, Int3 StartCoord, Int3 EndCoord) => default!;
-    public bool PlaceTerrainBlocks(CBlockModel BlockModel, Int3 StartCoord, Int3 EndCoord) => default!;
-    public bool PlaceTerrainBlocks_NoDestruction(CBlockModel BlockModel, Int3 StartCoord, Int3 EndCoord) => default!;
-    public bool CanPlaceMacroblock(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public bool PlaceMacroblock(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public bool CanPlaceMacroblock_NoDestruction(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public bool PlaceMacroblock_NoDestruction(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public bool CanPlaceMacroblock_NoTerrain(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public bool PlaceMacroblock_NoTerrain(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public bool RemoveMacroblock(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public bool RemoveMacroblock_NoTerrain(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public CBlock GetBlock(Int3 Coord) => default!;
-    public CBlock GetBlock(CBlockModel BlockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public bool IsBlockModelSkinnable(CBlockModel BlockModel) => default!;
-    public int GetNbBlockModelSkins(CBlockModel BlockModel) => default!;
-    public string GetBlockModelSkin(CBlockModel BlockModel, int SkinIndex) => default!;
-    public string GetSkinDisplayName(string SkinFileName) => default!;
-    public string GetBlockSkin(CBlock Block) => default!;
-    public void SetBlockSkin(CBlock Block, string SkinFileName) { }
-    public bool IsMacroblockModelSkinnable(CMacroblockModel BlockModel) => default!;
-    public bool SetMacroblockSkin(CMacroblockInstance Macroblock, string SkinFileName) => default!;
-    public bool OpenBlockSkinDialog(CBlock Block) => default!;
-    public bool RemoveBlock(Int3 Coord) => default!;
-    public bool RemoveBlock(CBlockModel BlockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public bool RemoveTerrainBlocks(Int3 StartCoord, Int3 EndCoord) => default!;
-    public int GetBlockGroundHeight(CBlockModel BlockModel, int CoordX, int CoordZ, CardinalDirections Dir) => default!;
-    public int GetGroundHeight(int CoordX, int CoordZ) => default!;
-    public Int3 GetMouseCoordOnGround() => default!;
-    public Int3 GetMouseCoordAtHeight(int CoordY) => default!;
-    public CBlock GetStartLineBlock() => default!;
-    public bool RemoveItem(CAnchorData Item) => default!;
-    public void CopyPaste_AddOrSubSelection(Int3 StartCoord, Int3 EndCoord) { }
-    public bool CopyPaste_Symmetrize() => default!;
-    public void SaveMacroblock(CMacroblockModel MacroblockModel) { }
-    public CMacroblockModel GetMacroblockModelFromFilePath(string MacroblockModelFilePath) => default!;
-    public CBlockModel GetTerrainBlockModelFromName(string TerrainBlockModelName) => default!;
-    public CBlockModel GetBlockModelFromName(string BlockModelName) => default!;
-    public CBlockClipList CreateFrameClipList() => default!;
-    public CBlockClipList CreateFixedClipList() => default!;
-    public void UnvalidateMetadata() { }
-    public void UnvalidateGameplayInfo() { }
-    public void UnvalidatePlayfield() { }
-    public bool RemoveMacroblock_NoTerrain_NoUnvalidate(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public bool PlaceMacroblock_NoTerrain_NoUnvalidate(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public void GetConnectResults(CBlock ExistingBlock, CBlockModel NewBlock) { }
-    public void GetConnectResults(CBlock ExistingBlock, CMacroblockModel NewBlock) { }
-    public void GetConnectResults(CMacroblockInstance ExistingBlock, CBlockModel NewBlock) { }
-    public void GetConnectResults(CMacroblockInstance ExistingBlock, CMacroblockModel NewBlock) { }
-    public int GetStartBlockCount(bool IncludeMultilaps) => default!;
-    public int GetFinishBlockCount(bool IncludeMultilaps) => default!;
-    public int GetMultilapBlockCount() => default!;
-    public int GetCheckpointBlockCount() => default!;
-    public CMacroblockInstance CreateMacroblockInstance(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir) => default!;
-    public CMacroblockInstance CreateMacroblockInstance(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir, int UserData) => default!;
-    public CMacroblockInstance CreateMacroblockInstance(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir, CBlockClipList DefaultClipList) => default!;
-    public CMacroblockInstance CreateMacroblockInstance(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir, CBlockClipList DefaultClipList, int UserData) => default!;
-    public CMacroblockInstance GetMacroblockInstanceFromOrder(int Order) => default!;
-    public CMacroblockInstance GetMacroblockInstanceFromUnitCoord(Int3 Coord) => default!;
-    public CMacroblockInstance GetLatestMacroblockInstance() => default!;
-    public CMacroblockInstance GetLatestMacroblockInstance(int Offset) => default!;
-    public CMacroblockInstance GetMacroblockInstanceConnectedToClip(CBlockClip Clip) => default!;
-    public bool RemoveMacroblockInstance(CMacroblockInstance MacroblockInstance) => default!;
-    public bool RemoveMacroblockInstanceFromOrder(int Order) => default!;
-    public bool RemoveMacroblockInstanceFromUnitCoord(int Order) => default!;
-    public bool RemoveMacroblockInstancesByUserData(int UserData) => default!;
-    public void ResetAllMacroblockInstances() { }
-    public int GetMaxOrder() => default!;
-    public bool SetMapType(string MapType) => default!;
-    public string GetMapType() => default!;
-    public void SetMapStyle(string MapStyle) { }
-    public string GetMapStyle() => default!;
-    public void SetMapIsCreatedWithPartyEditor(bool IsCreatedWithPartyEditor) { }
-    public string GetAvailableMapName() => default!;
-    public Vec3 GetVec3FromCoord(Int3 Coord) => default!;
+    public partial void RemoveAllBlocks();
+    public partial void RemoveAllTerrain();
+    public partial void RemoveAllOffZone();
+    public partial void RemoveAllObjects();
+    public partial void RemoveAll();
+    public partial void RemoveAllBlocksAndTerrain();
+    public partial void ShowCustomSelection();
+    public partial void HideCustomSelection();
+    public partial void CopyPaste_Copy();
+    public partial void CopyPaste_Cut();
+    public partial void CopyPaste_Remove();
+    public partial void CopyPaste_SelectAll();
+    public partial void CopyPaste_ResetSelection();
+    public partial void OpenToolsMenu();
+    public partial void EditMediatrackIngame();
+    public partial void PreloadAllBlocks();
+    public partial void PreloadAllItems();
+    public partial bool CanPlaceBlock(CBlockModel BlockModel, Int3 Coord, CardinalDirections Dir, bool OnGround, int VariantIndex);
+    public partial bool PlaceBlock(CBlockModel BlockModel, Int3 Coord, CardinalDirections Dir);
+    public partial bool CanPlaceBlock_NoDestruction(CBlockModel BlockModel, Int3 Coord, CardinalDirections Dir, bool OnGround, int VariantIndex);
+    public partial bool PlaceBlock_NoDestruction(CBlockModel BlockModel, Int3 Coord, CardinalDirections Dir);
+    public partial bool CanPlaceRoadBlocks(CBlockModel BlockModel, Int3 StartCoord, Int3 EndCoord);
+    public partial bool PlaceRoadBlocks(CBlockModel BlockModel, Int3 StartCoord, Int3 EndCoord);
+    public partial bool CanPlaceTerrainBlocks(CBlockModel BlockModel, Int3 StartCoord, Int3 EndCoord);
+    public partial bool PlaceTerrainBlocks(CBlockModel BlockModel, Int3 StartCoord, Int3 EndCoord);
+    public partial bool PlaceTerrainBlocks_NoDestruction(CBlockModel BlockModel, Int3 StartCoord, Int3 EndCoord);
+    public partial bool CanPlaceMacroblock(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir);
+    public partial bool PlaceMacroblock(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir);
+    public partial bool CanPlaceMacroblock_NoDestruction(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir);
+    public partial bool PlaceMacroblock_NoDestruction(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir);
+    public partial bool CanPlaceMacroblock_NoTerrain(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir);
+    public partial bool PlaceMacroblock_NoTerrain(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir);
+    public partial bool RemoveMacroblock(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir);
+    public partial bool RemoveMacroblock_NoTerrain(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir);
+    public partial CBlock GetBlock(Int3 Coord);
+    public partial CBlock GetBlock(CBlockModel BlockModel, Int3 Coord, CardinalDirections Dir);
+    public partial bool IsBlockModelSkinnable(CBlockModel BlockModel);
+    public partial int GetNbBlockModelSkins(CBlockModel BlockModel);
+    public partial string GetBlockModelSkin(CBlockModel BlockModel, int SkinIndex);
+    public partial string GetSkinDisplayName(string SkinFileName);
+    public partial string GetBlockSkin(CBlock Block);
+    public partial void SetBlockSkin(CBlock Block, string SkinFileName);
+    public partial bool IsMacroblockModelSkinnable(CMacroblockModel BlockModel);
+    public partial bool SetMacroblockSkin(CMacroblockInstance Macroblock, string SkinFileName);
+    public partial bool OpenBlockSkinDialog(CBlock Block);
+    public partial bool RemoveBlock(Int3 Coord);
+    public partial bool RemoveBlock(CBlockModel BlockModel, Int3 Coord, CardinalDirections Dir);
+    public partial bool RemoveTerrainBlocks(Int3 StartCoord, Int3 EndCoord);
+    public partial int GetBlockGroundHeight(CBlockModel BlockModel, int CoordX, int CoordZ, CardinalDirections Dir);
+    public partial int GetGroundHeight(int CoordX, int CoordZ);
+    public partial Int3 GetMouseCoordOnGround();
+    public partial Int3 GetMouseCoordAtHeight(int CoordY);
+    public partial CBlock GetStartLineBlock();
+    public partial bool RemoveItem(CAnchorData Item);
+    public partial void CopyPaste_AddOrSubSelection(Int3 StartCoord, Int3 EndCoord);
+    public partial bool CopyPaste_Symmetrize();
+    public partial void SaveMacroblock(CMacroblockModel MacroblockModel);
+    public partial CMacroblockModel GetMacroblockModelFromFilePath(string MacroblockModelFilePath);
+    public partial CBlockModel GetTerrainBlockModelFromName(string TerrainBlockModelName);
+    public partial CBlockModel GetBlockModelFromName(string BlockModelName);
+    public partial CBlockClipList CreateFrameClipList();
+    public partial CBlockClipList CreateFixedClipList();
+    public partial void UnvalidateMetadata();
+    public partial void UnvalidateGameplayInfo();
+    public partial void UnvalidatePlayfield();
+    public partial bool RemoveMacroblock_NoTerrain_NoUnvalidate(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir);
+    public partial bool PlaceMacroblock_NoTerrain_NoUnvalidate(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir);
+    public partial void GetConnectResults(CBlock ExistingBlock, CBlockModel NewBlock);
+    public partial void GetConnectResults(CBlock ExistingBlock, CMacroblockModel NewBlock);
+    public partial void GetConnectResults(CMacroblockInstance ExistingBlock, CBlockModel NewBlock);
+    public partial void GetConnectResults(CMacroblockInstance ExistingBlock, CMacroblockModel NewBlock);
+    public partial int GetStartBlockCount(bool IncludeMultilaps);
+    public partial int GetFinishBlockCount(bool IncludeMultilaps);
+    public partial int GetMultilapBlockCount();
+    public partial int GetCheckpointBlockCount();
+    public partial CMacroblockInstance CreateMacroblockInstance(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir);
+    public partial CMacroblockInstance CreateMacroblockInstance(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir, int UserData);
+    public partial CMacroblockInstance CreateMacroblockInstance(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir, CBlockClipList DefaultClipList);
+    public partial CMacroblockInstance CreateMacroblockInstance(CMacroblockModel MacroblockModel, Int3 Coord, CardinalDirections Dir, CBlockClipList DefaultClipList, int UserData);
+    public partial CMacroblockInstance GetMacroblockInstanceFromOrder(int Order);
+    public partial CMacroblockInstance GetMacroblockInstanceFromUnitCoord(Int3 Coord);
+    public partial CMacroblockInstance GetLatestMacroblockInstance();
+    public partial CMacroblockInstance GetLatestMacroblockInstance(int Offset);
+    public partial CMacroblockInstance GetMacroblockInstanceConnectedToClip(CBlockClip Clip);
+    public partial bool RemoveMacroblockInstance(CMacroblockInstance MacroblockInstance);
+    public partial bool RemoveMacroblockInstanceFromOrder(int Order);
+    public partial bool RemoveMacroblockInstanceFromUnitCoord(int Order);
+    public partial bool RemoveMacroblockInstancesByUserData(int UserData);
+    public partial void ResetAllMacroblockInstances();
+    public partial int GetMaxOrder();
+    public partial bool SetMapType(string MapType);
+    public partial string GetMapType();
+    public partial void SetMapStyle(string MapStyle);
+    public partial string GetMapStyle();
+    public partial void SetMapIsCreatedWithPartyEditor(bool IsCreatedWithPartyEditor);
+    public partial string GetAvailableMapName();
+    public partial Vec3 GetVec3FromCoord(Int3 Coord);
     public CMapEditorCamera Camera { get; }
     public CMapEditorCursor Cursor { get; }
     public System.Collections.Generic.IList<CItemAnchor> Items { get; }
@@ -262,8 +257,6 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public bool HideEditorInterface { get; set; }
     public bool HideBlockHelpers { get; set; }
     public bool ShowPlacementGrid { get; set; }
-    public bool IsTesting { get; }
-    public bool IsValidating { get; }
     public bool EditorInputIsDown_Menu { get; }
     public bool EditorInputIsDown_SwitchToRace { get; }
     public bool EditorInputIsDown_Undo { get; }
@@ -300,10 +293,6 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public bool EditorInputIsDown_SaveAs { get; }
     public bool EditorInputIsDown_MapStyle { get; }
     public bool EditorInputIsDown_ClassicMapEditor { get; }
-    public float CollectionSquareSize { get; }
-    public float CollectionSquareHeight { get; }
-    public int CollectionGroundY { get; }
-    public EValidationStatus ValidationStatus { get; }
     public string ManialinkText { get; set; }
     public CMlPage ManialinkPage { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
