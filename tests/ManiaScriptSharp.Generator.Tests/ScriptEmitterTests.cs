@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Xunit;
 
@@ -645,6 +646,42 @@ public class ScriptEmitterTests : EmitterTestBase
         Assert.Contains("#Struct CamelState {\n  Integer totalScore;\n}", output);
         Assert.Contains("#Struct SnakeState {\n  Integer player_url;\n}", output);
         Assert.Contains("#Struct JsonNamedState {\n  Integer score;\n}", output);
+    }
+
+    [Fact]
+    public void Emit_Structs_DeclareFieldTypesBeforeTheirUsers()
+    {
+        const string code = """
+            using System.Collections.Generic;
+            using ManiaScriptSharp;
+
+            public struct Parent
+            {
+                public Child Child;
+                public List<Leaf> Leaves;
+            }
+
+            public struct Unrelated { public int Value; }
+            public struct Child { public Leaf Leaf; }
+            public struct Leaf { public int Value; }
+
+            public class StructOrderContext : IContext
+            {
+                public void Main() { }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "StructOrderContext");
+
+        Assert.Empty(diagnostics);
+        Assert.True(output.IndexOf("#Struct Unrelated {", StringComparison.Ordinal)
+            < output.IndexOf("#Struct Leaf {", StringComparison.Ordinal));
+        Assert.True(output.IndexOf("#Struct Leaf {", StringComparison.Ordinal)
+            < output.IndexOf("#Struct Child {", StringComparison.Ordinal));
+        Assert.True(output.IndexOf("#Struct Child {", StringComparison.Ordinal)
+            < output.IndexOf("#Struct Parent {", StringComparison.Ordinal));
+        Assert.Contains("Leaf[] Leaves;", output);
     }
 
     [Fact]
