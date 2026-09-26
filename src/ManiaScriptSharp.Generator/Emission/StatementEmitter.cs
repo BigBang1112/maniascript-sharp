@@ -82,9 +82,9 @@ internal sealed class StatementEmitter
                 {
                     break;
                 }
-                // A label contribution is inserted automatically at its marker. An override
-                // therefore must not call base.Label(): ManiaScript has no corresponding
-                // function call, and the base contribution is already assembled there.
+                // A base label call is allowed only as the first statement of an override.
+                // The base contribution is already assembled at the label marker, so this
+                // statement has no separate ManiaScript call to emit.
                 if (IsBaseLabelCall(es.Expression)) break;
                 var text = _expr.Translate(es.Expression);
                 // Label calls share the insertion-point scope. Wrap every invocation in a block

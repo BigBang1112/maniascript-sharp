@@ -1845,6 +1845,7 @@ public class MyNextMode : MyMode
 {
     public override void OnMapIntroEnd()
     {
+        base.OnMapIntroEnd();
         Log("I do something");
     }
 }
@@ -1859,8 +1860,8 @@ log("I do something");
 ***
 ```
 
-> Do not call `base.OnMapIntroEnd()` from an override. The base label contribution is assembled
-> automatically; the generator omits such calls.
+> You can call `base.OnMapIntroEnd()` only as the first statement of the override.
+> The generator omits that call because the base label contribution is assembled automatically.
 
 ### Label types
 
