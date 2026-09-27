@@ -273,6 +273,8 @@ Fields become globals with a `G_` prefix, regardless of their C# accessibility. 
 produce warning `MSS016`; prefer a `private`, `protected`, or `protected internal` field and
 expose it through a property instead.
 
+When the context has no other functions, field initializers stay in the global declarations:
+
 **C#**
 ```cs
 public int PreviousTime = -1;
@@ -280,11 +282,32 @@ public string ServerName;
 ```
 **ManiaScript**
 ```
-declare Integer G_PreviousTime;
+declare Integer G_PreviousTime = -1;
 declare Text G_ServerName;
+```
+
+When the context defines another function, globals are declared without initializers and
+their values are assigned in `main()`:
+
+**C#**
+```cs
+private int PreviousTime = -1;
+
+void ResetTime()
+{
+    PreviousTime = 0;
+}
+```
+**ManiaScript**
+```
+declare Integer G_PreviousTime;
+
+Void ResetTime() {
+    G_PreviousTime = 0;
+}
 
 main() {
-  G_PreviousTime = -1;
+    G_PreviousTime = -1;
 }
 ```
 

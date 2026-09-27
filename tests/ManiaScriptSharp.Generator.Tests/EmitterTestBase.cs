@@ -273,7 +273,7 @@ class Test {{
 }}";
         var (ctx, expr, _, _) = CreateEmitters(code);
         new OnChangeCollector(ctx).Collect();
-        new GlobalEmitter(ctx).Emit();
+        new GlobalEmitter(ctx, expr).Emit();
         return ctx.W.ToString().ReplaceLineEndings("\n").Trim();
     }
 

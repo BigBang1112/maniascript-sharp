@@ -283,8 +283,18 @@ internal sealed class EmitContext
         }
     }
 
-    /// <summary>Field-initialiser statements that must run inside <c>main()</c> rather than at declaration.</summary>
+    /// <summary>Field-initialiser statements that run in the entry point rather than at declaration.</summary>
     public List<DeferredInit> DeferredInits { get; } = [];
+
+    /// <summary>Whether a function has been emitted before the context entry point.</summary>
+    public bool HasEmittedFunctions { get; set; }
+
+    /// <summary>Whether entry-point statements need a <c>main()</c> wrapper.</summary>
+    public bool NeedsMainWrapper => HasEmittedFunctions
+        || Info.Symbol.GetMembers().OfType<IMethodSymbol>()
+            .Any(m => m.MethodKind == MethodKind.Ordinary && m.Name is not ("Main" or "Loop"))
+        || Info.Symbol.GetMembers().OfType<IPropertySymbol>()
+            .Any(p => !p.HasAttr("ManialinkControlAttribute") && FunctionEmitter.IsUserDefinedProperty(p));
 
     /// <summary>Manialink-control bindings that <c>main()</c> must wire up via <c>Page.GetFirstChild</c>.</summary>
     public List<ManialinkBinding> ManialinkBindings { get; } = [];

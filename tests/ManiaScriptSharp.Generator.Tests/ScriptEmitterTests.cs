@@ -953,7 +953,7 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_ContextFieldInitializers_AreDeferredFromBareGlobalDeclarations()
+    public void Emit_ContextFieldInitializers_WithoutFunctions_AreInline()
     {
         const string code = """
             using System.Collections.Generic;
@@ -963,6 +963,50 @@ public class ScriptEmitterTests : EmitterTestBase
             {
                 private readonly Dictionary<string, Ident> ByName = new();
                 private string Empty = "";
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "StateContext");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("declare Ident[Text] G_ByName = [];", output);
+        Assert.Contains("declare Text G_Empty = \"\";", output);
+        Assert.DoesNotContain("main()", output);
+    }
+
+    [Fact]
+    public void Emit_ContextFieldInitializer_WithMainButNoHelperFunction_IsInline()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class StateContext : IContext
+            {
+                private string Empty = "";
+
+                public void Main()
+                {
+                    ManiaScript.Log(Empty);
+                }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "StateContext");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("declare Text G_Empty = \"\";", output);
+        Assert.Contains("log(G_Empty);", output);
+        Assert.DoesNotContain("main()", output);
+    }
+
+    [Fact]
+    public void Emit_ContextAutoPropertyInitializer_WithGeneratedAccessors_WrapsInMain()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class StateContext : IContext
+            {
                 private string Banner { get; set; } = "";
             }
             """;
@@ -970,12 +1014,27 @@ public class ScriptEmitterTests : EmitterTestBase
         var (output, diagnostics) = EmitScript(code, "StateContext");
 
         Assert.Empty(diagnostics);
-        Assert.Contains("declare Ident[Text] G_ByName;", output);
-        Assert.Contains("declare Text G_Empty;", output);
-        Assert.Contains("declare Text G_Banner;", output);
-        Assert.DoesNotContain("declare Ident[Text] G_ByName = [];", output);
-        Assert.DoesNotContain("declare Text G_Empty = \"\";", output);
-        Assert.Contains("main() {\n  G_ByName = [];\n  G_Empty = \"\";\n  G_Banner = \"\";\n}", output);
+        Assert.Contains("main() {\n  G_Banner = \"\";\n}", output);
+    }
+
+    [Fact]
+    public void Emit_ContextFieldInitializer_WithHelperFunction_WrapsInMain()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class StateContext : IContext
+            {
+                private string Empty = "";
+
+                private void Helper() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "StateContext");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("main() {\n  G_Empty = \"\";\n}", output);
     }
 
     [Fact]
@@ -998,8 +1057,7 @@ public class ScriptEmitterTests : EmitterTestBase
         var (output, diagnostics) = EmitScript(code, "StateContext");
 
         Assert.Empty(diagnostics);
-        Assert.Contains("declare Integer[Text] G_Scores;", output);
-        Assert.Contains("G_Scores = [\"alpha\" => 10, \"beta\" => 20];", output);
+        Assert.Contains("declare Integer[Text] G_Scores = [\"alpha\" => 10, \"beta\" => 20];", output);
     }
 
     [Fact]
@@ -1195,5 +1253,31 @@ public class ScriptEmitterTests : EmitterTestBase
         Assert.Contains("SetScore(9);", output);
         Assert.DoesNotContain("Lib::Increment", output);
         Assert.DoesNotContain("Lib::SetScore", output);
+    }
+
+    [Fact]
+    public void Emit_Manialink_InitializerWithInlinedLibFunction_WrapsInMain()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class CounterLib : ILib<object>
+            {
+                public object Context => null!;
+                public void Increment() { }
+            }
+
+            public class Host
+            {
+                public CounterLib Lib = null!;
+                private string Empty = "";
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "Host", isManialink: true);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("Void Increment()", output);
+        Assert.Contains("main() {\n  G_Empty = \"\";\n}", output);
     }
 }

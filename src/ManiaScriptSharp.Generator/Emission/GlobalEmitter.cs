@@ -6,13 +6,14 @@ namespace ManiaScriptSharp.Generator.Emission;
 
 /// <summary>
 /// Emits top-level <c>declare</c> globals (incl. <c>netwrite</c>/<c>netread</c>/<c>persistent</c>/<c>for</c>)
-/// and registers field initialisers into the deferred main()-init list.
+/// and defers initializers when the script needs a <c>main()</c> wrapper.
 /// Also collects <c>[ManialinkControl]</c> fields for later wiring.
 /// </summary>
 internal sealed class GlobalEmitter
 {
     private readonly EmitContext _ctx;
-    public GlobalEmitter(EmitContext ctx) { _ctx = ctx; }
+    private readonly ExpressionEmitter _expr;
+    public GlobalEmitter(EmitContext ctx, ExpressionEmitter expr) { _ctx = ctx; _expr = expr; }
 
     public void Emit()
     {
@@ -94,9 +95,15 @@ internal sealed class GlobalEmitter
         }
         else if (initSyntax is not null)
         {
-            // Global declarations must be bare; initialize context fields from main().
-            _ctx.DeferredInits.Add(new DeferredInit(name, initSyntax));
-            _ctx.W.Line($"declare {msType} {name};");
+            if (_ctx.NeedsMainWrapper)
+            {
+                _ctx.DeferredInits.Add(new DeferredInit(name, initSyntax));
+                _ctx.W.Line($"declare {msType} {name};");
+            }
+            else
+            {
+                _ctx.W.Line($"declare {msType} {name} = {_expr.Translate(initSyntax)};");
+            }
         }
         else
         {
@@ -140,9 +147,15 @@ internal sealed class GlobalEmitter
         }
         else if (initSyntax is not null)
         {
-            // Context globals cannot have declaration initializers; run these at the top of main().
-            _ctx.DeferredInits.Add(new DeferredInit(name, initSyntax));
-            _ctx.W.Line($"declare {msType} {name};");
+            if (_ctx.NeedsMainWrapper)
+            {
+                _ctx.DeferredInits.Add(new DeferredInit(name, initSyntax));
+                _ctx.W.Line($"declare {msType} {name};");
+            }
+            else
+            {
+                _ctx.W.Line($"declare {msType} {name} = {_expr.Translate(initSyntax)};");
+            }
         }
         else
         {

@@ -164,7 +164,7 @@ internal sealed class FunctionEmitter
     /// Safe to key off source file alone here: this is only ever called for members of
     /// <c>_ctx.Info.Symbol</c> itself (see <see cref="Emit"/> below), never inherited properties.
     /// </summary>
-    private static bool IsUserDefinedProperty(IPropertySymbol p)
+    internal static bool IsUserDefinedProperty(IPropertySymbol p)
     {
         var syntaxRef = p.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxRef?.GetSyntax() is not PropertyDeclarationSyntax) return false;
@@ -178,6 +178,9 @@ internal sealed class FunctionEmitter
     {
         var syntaxRef = p.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxRef?.GetSyntax() is not PropertyDeclarationSyntax decl) return;
+
+        if (p.GetMethod is not null || p.SetMethod is not null)
+            _ctx.HasEmittedFunctions = true;
 
         var msType = _ctx.MapType(p.Type);
         var getName = NameMangler.Getter(p);
@@ -263,6 +266,7 @@ internal sealed class FunctionEmitter
 
     private void EmitFunction(IMethodSymbol m)
     {
+        _ctx.HasEmittedFunctions = true;
         var mutated = FindMutatedParameters(m.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax());
         var ret = _ctx.MapType(m.ReturnType);
         var name = NameMangler.Method(m);

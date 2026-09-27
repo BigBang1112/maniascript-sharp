@@ -12,6 +12,8 @@ internal sealed class ScriptEmitter
     /// <summary>Manialink control bindings collected during <see cref="Emit"/>. Available after emit completes.</summary>
     public IReadOnlyList<ManialinkBinding> ManialinkBindings => _ctx.ManialinkBindings;
 
+    internal bool HasEmittedFunctions => _ctx.HasEmittedFunctions;
+
     internal IReadOnlyList<Microsoft.CodeAnalysis.Diagnostic> ReportedDiagnostics => _ctx.ReportedDiagnostics;
 
     public ScriptEmitter(ContextClassInfo info, Microsoft.CodeAnalysis.SourceProductionContext spc, BuildSettings settings, string rootNamespace = "")
@@ -40,7 +42,7 @@ internal sealed class ScriptEmitter
         new ConstSettingEmitter(_ctx, lit).Emit();
         functions.CollectLabels();
         new OnChangeCollector(_ctx).Collect();
-        new GlobalEmitter(_ctx).Emit();
+        new GlobalEmitter(_ctx, expr).Emit();
         functions.Emit();
         targetWriter.Raw(_ctx.W.ToString());
     }
@@ -71,7 +73,7 @@ internal sealed class ScriptEmitter
             // functions use these globals internally.
             var libStructs = new StructEmitter(_ctx);
             var libConstsSettings = new ConstSettingEmitter(_ctx, lit);
-            var libGlobals = new GlobalEmitter(_ctx);
+            var libGlobals = new GlobalEmitter(_ctx, expr);
 
             directives.Emit();
             libStructs.Emit();
@@ -91,7 +93,7 @@ internal sealed class ScriptEmitter
         var structs = new StructEmitter(_ctx);
         var constsSettings = new ConstSettingEmitter(_ctx, lit);
         var commands = new CommandEmitter(_ctx);
-        var globals = new GlobalEmitter(_ctx);
+        var globals = new GlobalEmitter(_ctx, expr);
         var events = new EventCollector(_ctx);
         var main = new MainEmitter(_ctx, stmt, expr, events);
 
@@ -158,6 +160,7 @@ internal sealed class ScriptEmitter
         {
             _ctx.W.Line($"// Inlined lib: {name}");
             emitter.EmitFunctionsOnly(_ctx.W);
+            _ctx.HasEmittedFunctions |= emitter.HasEmittedFunctions;
         }
     }
 }

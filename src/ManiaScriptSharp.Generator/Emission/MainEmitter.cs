@@ -40,10 +40,7 @@ internal sealed class MainEmitter
         // script, because bare top-level statements are not allowed alongside function
         // definitions.  When there are no user-defined functions/labels the code can be
         // emitted directly at the top level.
-        var hasFunctions = _ctx.Info.Symbol.GetMembers().OfType<IMethodSymbol>()
-            .Any(m => m.MethodKind == MethodKind.Ordinary
-                   && m.Name is not ("Main" or "Loop"));
-        var needsMainWrapper = hasFunctions || deferred.Count > 0;
+        var needsMainWrapper = _ctx.NeedsMainWrapper;
 
         if (needsMainWrapper)
         {
